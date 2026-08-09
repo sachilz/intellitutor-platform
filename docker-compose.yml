@@ -1,0 +1,73 @@
+services:
+  # Redis service for API Gateway rate limiting
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  # Keycloak IAM service for OAuth2 authentication
+  # NOTE: Keycloak realm 'intellilearn', client 'intellilearn-gateway', and users must be
+  # manually configured via the Keycloak Admin Console at http://localhost:8180 after initial startup
+  # (or configured to auto-import a realm JSON file if a keycloak/ directory is added).
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: keycloak
+    command: start-dev
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+    ports:
+      - "8180:8080"
+
+  # User Service microservice
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    environment:
+      - MONGODB_URI=${USER_SERVICE_MONGODB_URI}
+      - SECURITY_API_KEY=${USER_SERVICE_API_KEY}
+
+  # Course Service microservice
+  course-service:
+    build:
+      context: ./course-service
+      dockerfile: Dockerfile
+    container_name: course-service
+    ports:
+      - "8082:8082"
+    environment:
+      - MONGODB_URI=${COURSE_SERVICE_MONGODB_URI}
+      - SECURITY_API_KEY=${COURSE_SERVICE_API_KEY}
+
+  # API Gateway routing & security entry point
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_started
+      keycloak:
+        condition: service_started
+      user-service:
+        condition: service_started
+      course-service:
+        condition: service_started
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # NOTE: Inside Docker Compose bridge network, services communicate using service names.
+      # Keycloak container listens on internal port 8080 (mapped to 8180 on host), so inside
+      # Docker network the issuer-uri must be http://keycloak:8080/realms/intellilearn.
+      # For local host-level testing outside Docker, issuer-uri was http://localhost:8180/realms/intellilearn.
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/intellilearn
+      - USER_SERVICE_URL=http://user-service:8081
+      - COURSE_SERVICE_URL=http://course-service:8082
