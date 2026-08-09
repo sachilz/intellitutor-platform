@@ -134,9 +134,16 @@ graph TD
 ---
 
 ### 3. API Gateway (`api-gateway`)
-- **Status**: 🚧 *In Progress*
 - **Port**: `8080`
-- **Purpose**: Central routing, rate limiting, and CORS handling layer for incoming client traffic.
+- **Purpose**: Central entry point and route forwarding layer for downstream microservices with StripPrefix path handling.
+
+#### Key Endpoints & Routes:
+| Method | Gateway Endpoint | Target Downstream Route | Target Service |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/gateway/health` | Gateway Status Check (`{"status": "Gateway is running"}`) | Internal Gateway |
+| `*` | `/api/users/**` | `http://localhost:8081/users/**` | `user-service` |
+| `*` | `/api/auth/**` | `http://localhost:8081/auth/**` | `user-service` |
+| `*` | `/api/courses/**` | `http://localhost:8082/courses/**` | `course-service` |
 
 ---
 
