@@ -11,35 +11,6 @@
 
 ---
 
-## Table of Contents
-- [Project Title \& Tagline](#intellilearn--ai-learning-platform-with-intelligent-tutor)
-- [Table of Contents](#table-of-contents)
-- [Project Overview](#project-overview)
-- [System Architecture](#system-architecture)
-- [Tech Stack](#tech-stack)
-- [Team \& Ownership](#team--ownership)
-- [Microservices Breakdown](#microservices-breakdown)
-  - [1. User Management Service (`user-service`)](#1-user-management-service-user-service)
-  - [2. Course Management Service (`course-service`)](#2-course-management-service-course-service)
-  - [3. API Gateway (`api-gateway`)](#3-api-gateway-api-gateway)
-  - [4. Quiz Service (`quiz-service`)](#4-quiz-service-quiz-service)
-  - [5. Progress Tracking Service (`progress-service`)](#5-progress-tracking-service-progress-service)
-  - [6. Intelligent Tutor Service (`tutor-service`)](#6-intelligent-tutor-service-tutor-service)
-  - [7. React Frontend (`client`)](#7-react-frontend-client)
-- [API Key Security](#api-key-security)
-- [Prerequisites](#prerequisites)
-- [Getting Started / Running the System](#getting-started--running-the-system)
-  - [1. Environment Setup](#1-environment-setup)
-  - [2. Local Development (Individual Services)](#2-local-development-individual-services)
-  - [3. Docker Compose Deployment](#3-docker-compose-deployment)
-- [Environment Variables](#environment-variables)
-- [API Documentation](#api-documentation)
-- [Testing](#testing)
-- [Project Structure](#project-structure)
-- [Contribution Guidelines](#contribution-guidelines)
-- [License](#license)
-
----
 
 ## Project Overview
 
