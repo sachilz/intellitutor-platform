@@ -44,6 +44,18 @@ services:
       - MONGODB_URI=${COURSE_SERVICE_MONGODB_URI}
       - SECURITY_API_KEY=${COURSE_SERVICE_API_KEY}
 
+  # Learning Progress Service microservice
+  progress-service:
+    build:
+      context: ./progress-service
+      dockerfile: Dockerfile
+    container_name: progress-service
+    ports:
+      - "8084:8084"
+    environment:
+      - MONGODB_URI=${PROGRESS_SERVICE_MONGODB_URI}
+      - SECURITY_API_KEY=${PROGRESS_SERVICE_API_KEY}
+
   # API Gateway routing & security entry point
   api-gateway:
     build:
@@ -61,6 +73,8 @@ services:
         condition: service_started
       course-service:
         condition: service_started
+      progress-service:
+        condition: service_started
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -71,3 +85,4 @@ services:
       - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/intellilearn
       - USER_SERVICE_URL=http://user-service:8081
       - COURSE_SERVICE_URL=http://course-service:8082
+      - PROGRESS_SERVICE_URL=http://progress-service:8084
