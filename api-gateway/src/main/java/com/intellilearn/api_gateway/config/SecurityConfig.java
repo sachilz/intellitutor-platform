@@ -24,26 +24,30 @@ public class SecurityConfig {
         ServerAuthenticationEntryPoint entryPoint = customAuthenticationEntryPoint();
 
         http
-            .csrf(ServerHttpSecurity.CsrfSpec::disable)
-            .authorizeExchange(exchanges -> exchanges
-                .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .pathMatchers("/gateway/health").permitAll()
-                .pathMatchers("/api/**").authenticated()
-                .anyExchange().authenticated()
-            )
-            .oauth2ResourceServer(oauth2 -> oauth2
-                .jwt(jwt -> {})
-                .authenticationEntryPoint(entryPoint)
-            )
-            .exceptionHandling(exceptionHandling -> exceptionHandling
-                .authenticationEntryPoint(entryPoint)
-            );
+                .csrf(ServerHttpSecurity.CsrfSpec::disable)
+                .authorizeExchange(exchanges -> exchanges
+                        .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .pathMatchers("/gateway/health", "/api/auth/**", "/api/courses/**", "/api/progress/**")
+                        .permitAll()
+                        .pathMatchers("/api/**").authenticated()
+                        .anyExchange().authenticated())
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> {
+                        })
+                        .authenticationEntryPoint(entryPoint))
+                .exceptionHandling(exceptionHandling -> exceptionHandling
+                        .authenticationEntryPoint(entryPoint));
 
         return http.build();
     }
 
     private ServerAuthenticationEntryPoint customAuthenticationEntryPoint() {
         return (exchange, ex) -> {
+            String path = exchange.getRequest().getURI().getPath();
+            if (path.startsWith("/api/auth/") || path.startsWith("/api/courses") || path.startsWith("/api/progress") || path.equals("/gateway/health")) {
+                return Mono.empty();
+            }
+
             ServerHttpResponse response = exchange.getResponse();
             response.setStatusCode(HttpStatus.UNAUTHORIZED);
             response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
