@@ -330,7 +330,7 @@ const CourseDetailPage = () => {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0e1a', overflowX: 'hidden' }}>
+    <div style={{ minHeight: '100vh', background: '#0a0e1a', overflowX: 'hidden', margin: '-1.5rem -2rem', padding: 0 }}>
       {/* Inline styles for this page */}
       <style>{`
         @keyframes cdpFadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
