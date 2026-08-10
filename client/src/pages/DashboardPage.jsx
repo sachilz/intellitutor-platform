@@ -27,10 +27,20 @@ import {
   SlidersHorizontal,
   LayoutGrid,
   List,
+  Grid2x2,
   Bot,
   Zap,
   Target,
-  Send
+  Send,
+  Bookmark,
+  Heart,
+  Award,
+  ChevronRight,
+  PlayCircle,
+  MessageSquare,
+  HelpCircle,
+  BarChart2,
+  Check
 } from 'lucide-react';
 
 const DashboardPage = () => {
@@ -45,17 +55,63 @@ const DashboardPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [sortBy, setSortBy] = useState('RECOMMENDED');
-  const [viewMode, setViewMode] = useState('GRID'); // 'GRID' | 'LIST'
+  const [viewMode, setViewMode] = useState('GRID'); // 'GRID' | 'LIST' | 'COMPACT'
   const [previewCourse, setPreviewCourse] = useState(null);
+  const [previewTab, setPreviewTab] = useState('overview'); // 'overview' | 'syllabus' | 'skills'
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
-  // Daily Streak Check-In State
-  const [streakCheckedIn, setStreakCheckedIn] = useState(false);
+  // Bookmarked / Favorite Courses (Persisted in localStorage)
+  const [favorites, setFavorites] = useState(() => {
+    try {
+      const saved = localStorage.getItem('intellilearn_favorites');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
-  // AI Assistant Sandbox State
+  // Daily Streak Check-In & XP State
+  const [streakCheckedIn, setStreakCheckedIn] = useState(false);
+  const [showStreakModal, setShowStreakModal] = useState(false);
+  const [userXp, setUserXp] = useState(350);
+
+  // Interactive Study Goal Tracker (in hours)
+  const [loggedHours, setLoggedHours] = useState(3.5);
+  const targetHours = 5.0;
+
+  // AI Assistant Sandbox Terminal State
   const [aiSandboxPrompt, setAiSandboxPrompt] = useState('');
   const [aiSandboxResponse, setAiSandboxResponse] = useState(null);
   const [aiSandboxLoading, setAiSandboxLoading] = useState(false);
+
+  // Floating AI Assistant Drawer Toggle
+  const [fabOpen, setFabOpen] = useState(false);
+  const [fabPrompt, setFabPrompt] = useState('');
+  const [fabMessages, setFabMessages] = useState([
+    { sender: 'ai', text: 'Hi! I am your IntelliLearn AI Tutor. Ask me anything about course recommendations, learning paths, or technical skills!' }
+  ]);
+
+  // Persist favorites when changed
+  useEffect(() => {
+    try {
+      localStorage.setItem('intellilearn_favorites', JSON.stringify(favorites));
+    } catch (e) {
+      console.warn('Could not save favorites to localStorage', e);
+    }
+  }, [favorites]);
+
+  const toggleFavorite = (courseId) => {
+    setFavorites((prev) => {
+      const exists = prev.includes(courseId);
+      const updated = exists ? prev.filter((id) => id !== courseId) : [...prev, courseId];
+      addToast(
+        exists ? 'Course removed from bookmarks' : 'Course saved to your bookmarks! ⭐',
+        exists ? 'info' : 'success',
+        exists ? 'Bookmark Removed' : 'Bookmarked'
+      );
+      return updated;
+    });
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -108,7 +164,7 @@ const DashboardPage = () => {
     fetchData();
   }, [user]);
 
-  // Derived Category Pills List
+  // Derived Categories & Counts
   const categories = useMemo(() => {
     const set = new Set();
     courses.forEach((c) => {
@@ -117,8 +173,12 @@ const DashboardPage = () => {
     return Array.from(set);
   }, [courses]);
 
-  // Derived Metrics
-  const enrolledCount = useMemo(() => Object.keys(userProgressMap).length, [userProgressMap]);
+  const enrolledCoursesList = useMemo(() => {
+    return courses.filter((c) => userProgressMap[c.id || c._id] !== undefined);
+  }, [courses, userProgressMap]);
+
+  const enrolledCount = enrolledCoursesList.length;
+
   const avgProgress = useMemo(() => {
     const values = Object.values(userProgressMap);
     if (values.length === 0) return 0;
@@ -134,7 +194,7 @@ const DashboardPage = () => {
     try {
       const updated = await updateProgress(user.id, courseId, newPercent);
       setUserProgressMap((prev) => ({ ...prev, [courseId]: updated.completedPercent }));
-      addToast(`Progress boosted to ${updated.completedPercent}%!`, 'success', 'Keep it up!');
+      addToast(`Progress boosted to ${updated.completedPercent}%! 🚀`, 'success', 'Keep it up!');
     } catch (err) {
       setUserProgressMap((prev) => ({ ...prev, [courseId]: newPercent }));
       addToast(`Progress updated to ${newPercent}%!`, 'info', 'Progress Saved');
@@ -155,7 +215,7 @@ const DashboardPage = () => {
         console.warn('Progress creation fallback', pErr);
       }
       setUserProgressMap((prev) => ({ ...prev, [courseId]: 0 }));
-      addToast('Enrolled successfully!', 'success', 'Registration Confirmed');
+      addToast('Enrolled successfully! Welcome aboard 🎓', 'success', 'Registration Confirmed');
       setPreviewCourse(null);
     } catch (err) {
       setUserProgressMap((prev) => ({ ...prev, [courseId]: 0 }));
@@ -166,17 +226,31 @@ const DashboardPage = () => {
     }
   };
 
-  // Streak Check-In Handler
+  // Daily Streak Check-In Handler
   const handleStreakCheckIn = () => {
-    setStreakCheckedIn(true);
-    addToast('🔥 Daily Streak Claimed! You gained +50 AI Tutor XP.', 'success', 'Daily Streak Claimed');
+    if (!streakCheckedIn) {
+      setStreakCheckedIn(true);
+      setUserXp((prev) => prev + 50);
+      setShowStreakModal(true);
+      addToast('🔥 Daily Streak Claimed! You gained +50 AI Tutor XP.', 'success', 'Streak Reward');
+    } else {
+      setShowStreakModal(true);
+    }
   };
 
-  // AI Assistant Sandbox Quick Prompt Handler
+  // Log +30 mins study session simulator
+  const handleLogStudyTime = () => {
+    setLoggedHours((prev) => Math.min(targetHours, Math.round((prev + 0.5) * 10) / 10));
+    setUserXp((prev) => prev + 25);
+    addToast('⏱️ Logged +30 mins of AI learning! +25 XP added.', 'success', 'Study Time Logged');
+  };
+
+  // AI Assistant Sandbox Terminal Handler
   const handleAiSandboxPrompt = (promptText) => {
     const q = promptText || aiSandboxPrompt;
     if (!q.trim()) return;
 
+    setAiSandboxPrompt(q);
     setAiSandboxLoading(true);
     setAiSandboxResponse(null);
 
@@ -186,35 +260,75 @@ const DashboardPage = () => {
       const lower = q.toLowerCase();
 
       if (lower.includes('recommend') || lower.includes('goal')) {
-        res = `🤖 **AI Tutor Recommendation**: Based on market demand, start with **"Generative AI & LLM Engineering"** by Dr. Andrew Ng or **"Machine Learning Foundations"**!`;
+        res = `🤖 **AI Tutor Recommendation**:
+Based on market demand and your current active learning stats:
+1. **Generative AI & LLM Engineering** by Dr. Andrew Ng (Top Rated)
+2. **Machine Learning Foundations** (Best for core mathematical foundations)
+3. **Full-Stack React & Next.js Masterclass** (Great for building AI apps)`;
       } else if (lower.includes('skill') || lower.includes('demand')) {
-        res = `⚡ **Top In-Demand AI Skills**:
-1. Transformer Architectures & RAG
-2. PyTorch Deep Learning
-3. Next.js Full-Stack App Engineering
-4. Multi-Agent Prompt Orchestration.`;
+        res = `⚡ **Top In-Demand AI Skills for 2026**:
+• **Transformer Architectures & RAG Pipeline Design**
+• **PyTorch & Deep Neural Network Optimization**
+• **Multi-Agent Orchestration & LangChain/LangGraph**
+• **Full-Stack Next.js AI SDK Integration**`;
       } else if (lower.includes('roadmap') || lower.includes('path') || lower.includes('progress')) {
-        res = `🔥 **Your Learning Roadmap**:
-You have **${enrolledCount} active enrolled courses** with an average completion rate of **${avgProgress}%**. Finish your remaining modules to claim your certificates!`;
+        res = `🔥 **Your Personalized Learning Roadmap**:
+You currently have **${enrolledCount} active enrolled courses** with an average completion rate of **${avgProgress}%**.
+Complete your enrolled modules to unlock your **Verified AI Certifications**!`;
+      } else if (lower.includes('transformer') || lower.includes('explain')) {
+        res = `💡 **AI Core Concept Breakdown**:
+Transformers rely on **Self-Attention mechanisms** to weigh the importance of input tokens regardless of distance in sequence. Key building blocks include Multi-Head Attention, Feedforward Neural Networks, and Positional Embeddings. Check out our **NLP with Transformers** course below!`;
       } else {
-        res = `🤖 **AI Tutor**: "${q}" is an excellent focus topic. Check out our curated catalog of ${courses.length} courses below to dive deep!`;
+        res = `🤖 **AI Tutor Response**:
+"${q}" is a great topic to explore! We have ${courses.length} specialized AI & Engineering courses in our catalog below to help you master this step by step.`;
       }
 
       setAiSandboxResponse(res);
-    }, 550);
+    }, 600);
   };
+
+  // Floating FAB AI Chat Handler
+  const handleSendFabMessage = () => {
+    if (!fabPrompt.trim()) return;
+    const userMsg = { sender: 'user', text: fabPrompt };
+    setFabMessages((prev) => [...prev, userMsg]);
+    const currentQ = fabPrompt;
+    setFabPrompt('');
+
+    setTimeout(() => {
+      let aiText = `I analyzed your request about "${currentQ}". You can search our ${courses.length} courses or click "Recommend Course" in the top hero terminal for instant guidance!`;
+      const lower = currentQ.toLowerCase();
+      if (lower.includes('hi') || lower.includes('hello')) {
+        aiText = `Hello ${user?.username || 'Learner'}! How can I assist your AI learning journey today?`;
+      } else if (lower.includes('certificate') || lower.includes('cert')) {
+        aiText = `You earn a shareable Verified Certificate as soon as you reach 100% progress on any enrolled course!`;
+      }
+      setFabMessages((prev) => [...prev, { sender: 'ai', text: aiText }]);
+    }, 500);
+  };
+
+  // Dynamic Greeting based on time
+  const timeGreeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return { text: 'Good morning', emoji: '☀️' };
+    if (hour < 18) return { text: 'Good afternoon', emoji: '🌤️' };
+    return { text: 'Good evening', emoji: '🌙' };
+  }, []);
 
   // Filtered & Sorted Courses Calculation
   const filteredCourses = useMemo(() => {
     let list = courses.filter((course) => {
       const courseId = course.id || course._id;
       const isEnrolled = userProgressMap[courseId] !== undefined;
+      const isFav = favorites.includes(courseId);
 
       // Category filter
       if (selectedCategory === 'ENROLLED' && !isEnrolled) return false;
+      if (selectedCategory === 'FAVORITES' && !isFav) return false;
       if (
         selectedCategory !== 'ALL' &&
         selectedCategory !== 'ENROLLED' &&
+        selectedCategory !== 'FAVORITES' &&
         course.category !== selectedCategory
       ) {
         return false;
@@ -226,7 +340,8 @@ You have **${enrolledCount} active enrolled courses** with an average completion
         const titleMatch = (course.title || course.name || '').toLowerCase().includes(query);
         const descMatch = (course.description || '').toLowerCase().includes(query);
         const instructorMatch = (course.instructor || '').toLowerCase().includes(query);
-        if (!titleMatch && !descMatch && !instructorMatch) return false;
+        const categoryMatch = (course.category || '').toLowerCase().includes(query);
+        if (!titleMatch && !descMatch && !instructorMatch && !categoryMatch) return false;
       }
 
       return true;
@@ -241,33 +356,75 @@ You have **${enrolledCount} active enrolled courses** with an average completion
         const pB = userProgressMap[b.id || b._id] || 0;
         return pB - pA;
       });
+    } else if (sortBy === 'RATING') {
+      list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
     }
 
     return list;
-  }, [courses, userProgressMap, selectedCategory, searchTerm, sortBy]);
+  }, [courses, userProgressMap, selectedCategory, searchTerm, sortBy, favorites]);
+
+  // Skill tags generator helper
+  const getSkillTags = (category) => {
+    switch (category) {
+      case 'GenAI': return ['LLMs', 'Prompt Eng', 'RAG', 'LangChain'];
+      case 'AI & ML': return ['PyTorch', 'Neural Nets', 'Scikit-Learn', 'Math'];
+      case 'Web Dev': return ['React 19', 'Next.js', 'TypeScript', 'Tailwind'];
+      case 'DevOps & Cloud': return ['Docker', 'Kubernetes', 'AWS', 'CI/CD'];
+      case 'Data Science': return ['Pandas', 'Python', 'NumPy', 'Visualization'];
+      case 'Security': return ['Zero Trust', 'Cybersecurity', 'Auth', 'OAuth2'];
+      default: return ['AI', 'Engineering', 'Hands-on'];
+    }
+  };
 
   return (
-    <div className="dashboard-container animate-fade-in">
-      {/* 1. Hero Banner with Interactive AI Assistant Sandbox */}
-      <div className="welcome-banner glass-card" style={{ background: 'linear-gradient(135deg, rgba(13, 19, 36, 0.95) 0%, rgba(21, 30, 54, 0.9) 100%)', border: '1px solid rgba(6, 182, 212, 0.35)', boxShadow: '0 0 35px rgba(6, 182, 212, 0.15)' }}>
-        <div className="banner-content" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(6, 182, 212, 0.15)', border: '1px solid rgba(6, 182, 212, 0.4)', padding: '4px 14px', borderRadius: '20px', fontSize: '0.8rem', color: '#67e8f9', fontWeight: 600, marginBottom: '10px' }}>
-              <Sparkles size={14} color="var(--neon-cyan)" /> Intelligent AI Learning Hub
+    <div className="dashboard-container animate-fade-in" style={{ position: 'relative' }}>
+      
+      {/* 1. HERO BANNER WITH AMBIENT MESH GRADIENT & AI COMMAND TERMINAL */}
+      <div 
+        className="welcome-banner glass-card" 
+        style={{ 
+          background: 'linear-gradient(135deg, rgba(13, 19, 36, 0.96) 0%, rgba(21, 30, 54, 0.92) 100%)', 
+          border: '1px solid rgba(6, 182, 212, 0.35)', 
+          boxShadow: '0 0 40px rgba(6, 182, 212, 0.15)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        <div className="hero-mesh-bg"></div>
+
+        <div className="banner-content" style={{ display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(6, 182, 212, 0.15)', border: '1px solid rgba(6, 182, 212, 0.4)', padding: '5px 16px', borderRadius: '20px', fontSize: '0.8rem', color: '#67e8f9', fontWeight: 600, marginBottom: '12px' }}>
+                <Sparkles size={14} color="var(--neon-cyan)" /> Intelligent AI Learning Hub & Assistant
+              </div>
+              <h1 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                {timeGreeting.text}, {user?.username || 'Learner'}! {timeGreeting.emoji}
+              </h1>
+              <p style={{ maxWidth: '750px', color: 'var(--text-muted)', fontSize: '1rem', marginTop: '4px' }}>
+                Master cutting-edge AI technologies, prompt your AI tutor, track real-time progress, and earn verified skill credentials.
+              </p>
             </div>
-            <h1 style={{ fontSize: '2.4rem', fontWeight: 800 }}>Welcome back, {user?.username || 'Learner'}! 👋</h1>
-            <p style={{ maxWidth: '720px', color: 'var(--text-muted)' }}>
-              Explore 11+ cutting-edge AI courses, track real-time progress, and prompt your personal AI tutor assistant below.
-            </p>
+
+            {/* AI Engine Status Badge */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid var(--border-color)', padding: '8px 14px', borderRadius: 'var(--radius-lg)' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }}></div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-main)', fontWeight: 700 }}>AI Tutor Online</span>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>GPT-4o / Claude 3.5 Hybrid</span>
+              </div>
+            </div>
           </div>
 
-          {/* Interactive AI Sandbox Prompt Widget */}
-          <div className="ai-sandbox-card" style={{ marginTop: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {/* Interactive AI Sandbox Prompt Command Bar */}
+          <div className="ai-sandbox-card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.95rem', color: '#67e8f9' }}>
-                <Bot size={18} color="var(--neon-cyan)" /> Quick AI Tutor Assistant
+                <Bot size={20} color="var(--neon-cyan)" /> AI Tutor Command Terminal
               </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Instant AI Guidance</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Zap size={12} color="var(--neon-amber)" /> Instant AI Recommendations & Insights
+              </span>
             </div>
 
             {/* Quick Prompt Chips */}
@@ -295,38 +452,63 @@ You have **${enrolledCount} active enrolled courses** with an average completion
               >
                 <Flame size={13} /> My Roadmap
               </button>
+
+              <button
+                type="button"
+                className="ai-sandbox-chip"
+                onClick={() => handleAiSandboxPrompt('Explain Transformer self-attention')}
+              >
+                <HelpCircle size={13} /> Explain Transformers
+              </button>
             </div>
 
-            {/* Custom Prompt Bar */}
+            {/* Custom Prompt Input */}
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
                 type="text"
                 className="form-control"
-                style={{ background: 'rgba(11, 17, 32, 0.8)', border: '1px solid rgba(255, 255, 255, 0.12)' }}
-                placeholder="Ask AI tutor anything about course recommendations or skills..."
+                style={{ background: 'rgba(11, 17, 32, 0.85)', border: '1px solid rgba(6, 182, 212, 0.25)', fontSize: '0.9rem' }}
+                placeholder="Ask AI tutor anything about course recommendations, skills, or concepts..."
                 value={aiSandboxPrompt}
                 onChange={(e) => setAiSandboxPrompt(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAiSandboxPrompt()}
               />
+              {aiSandboxPrompt && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => { setAiSandboxPrompt(''); setAiSandboxResponse(null); }}
+                  title="Clear prompt"
+                >
+                  <X size={16} />
+                </button>
+              )}
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={() => handleAiSandboxPrompt()}
                 disabled={aiSandboxLoading}
+                style={{ padding: '0.65rem 1.25rem' }}
               >
                 {aiSandboxLoading ? <span className="spinner"></span> : <Send size={16} />}
               </button>
             </div>
 
-            {/* Live Response Box */}
+            {/* Live Response Card */}
             {aiSandboxLoading && (
-              <div style={{ fontSize: '0.85rem', color: '#a5b4fc', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="spinner"></span> AI Tutor is generating insights...
+              <div style={{ fontSize: '0.85rem', color: '#a5b4fc', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0' }}>
+                <span className="spinner"></span> AI Tutor is generating custom insights...
               </div>
             )}
 
             {aiSandboxResponse && (
-              <div style={{ padding: '14px', background: 'rgba(11, 17, 32, 0.9)', border: '1px solid var(--primary-border)', borderRadius: '12px', fontSize: '0.9rem', lineHeight: 1.6, whiteSpace: 'pre-line', animation: 'slideUp 0.25s ease' }}>
+              <div style={{ padding: '16px', background: 'rgba(11, 17, 32, 0.95)', border: '1px solid rgba(6, 182, 212, 0.35)', borderRadius: '12px', fontSize: '0.9rem', lineHeight: 1.6, whiteSpace: 'pre-line', animation: 'slideUp 0.25s ease', position: 'relative' }}>
+                <button 
+                  onClick={() => setAiSandboxResponse(null)} 
+                  style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}
+                >
+                  <X size={14} />
+                </button>
                 {aiSandboxResponse}
               </div>
             )}
@@ -334,8 +516,66 @@ You have **${enrolledCount} active enrolled courses** with an average completion
         </div>
       </div>
 
-      {/* 2. Key Metric Overview Cards */}
+      {/* 2. CONTINUE LEARNING BANNER (If Enrolled Courses Exist) */}
+      {enrolledCoursesList.length > 0 && (
+        <div className="continue-learning-section">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <PlayCircle size={20} color="var(--success)" /> Continue Learning
+            </h3>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+              {enrolledCoursesList.length} Active {enrolledCoursesList.length === 1 ? 'Course' : 'Courses'}
+            </span>
+          </div>
+
+          <div className="continue-learning-card glass-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: '260px' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6ee7b7', flexShrink: 0 }}>
+                <GraduationCap size={24} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span className={`badge ${getCategoryBadgeClass(enrolledCoursesList[0].category)}`} style={{ width: 'fit-content', fontSize: '0.7rem' }}>
+                  {enrolledCoursesList[0].category || 'In Progress'}
+                </span>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{enrolledCoursesList[0].title}</h4>
+              </div>
+            </div>
+
+            <div style={{ flex: 1, minWidth: '200px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Progress</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <strong style={{ color: '#6ee7b7' }}>{userProgressMap[enrolledCoursesList[0].id || enrolledCoursesList[0]._id] || 0}%</strong>
+                  {(userProgressMap[enrolledCoursesList[0].id || enrolledCoursesList[0]._id] || 0) < 100 && (
+                    <button
+                      type="button"
+                      onClick={() => handleQuickProgressBump(enrolledCoursesList[0].id || enrolledCoursesList[0]._id, userProgressMap[enrolledCoursesList[0].id || enrolledCoursesList[0]._id])}
+                      disabled={actionLoadingId === (enrolledCoursesList[0].id || enrolledCoursesList[0]._id)}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                      title="Add 10% progress bump"
+                    >
+                      +10%
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="progress-bar-container" style={{ height: '8px' }}>
+                <div className="progress-bar-fill" style={{ width: `${userProgressMap[enrolledCoursesList[0].id || enrolledCoursesList[0]._id] || 0}%`, background: 'var(--accent-gradient)' }}></div>
+              </div>
+            </div>
+
+            <Link to={`/courses/${enrolledCoursesList[0].id || enrolledCoursesList[0]._id}`} className="btn btn-primary" style={{ flexShrink: 0 }}>
+              <span>Resume Lesson</span>
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* 3. KEY METRIC OVERVIEW CARDS & GAMIFIED GOAL TRACKER */}
       <div className="stats-overview-grid">
+        {/* Available Courses */}
         <button
           type="button"
           className={`stat-card clickable ${selectedCategory === 'ALL' && sortBy !== 'PROGRESS' ? 'active' : ''}`}
@@ -343,7 +583,7 @@ You have **${enrolledCount} active enrolled courses** with an average completion
             setSelectedCategory('ALL');
             setSearchTerm('');
             setSortBy('RECOMMENDED');
-            addToast('Showing all available courses', 'info', 'Catalog View');
+            addToast('Showing all available courses in catalog', 'info', 'Catalog View');
           }}
           title="Show all available courses"
         >
@@ -356,6 +596,7 @@ You have **${enrolledCount} active enrolled courses** with an average completion
           </div>
         </button>
 
+        {/* Enrolled Courses */}
         <button
           type="button"
           className={`stat-card clickable ${selectedCategory === 'ENROLLED' ? 'active' : ''}`}
@@ -381,6 +622,7 @@ You have **${enrolledCount} active enrolled courses** with an average completion
           </div>
         </button>
 
+        {/* Average Mastery / Progress */}
         <button
           type="button"
           className={`stat-card clickable ${sortBy === 'PROGRESS' ? 'active' : ''}`}
@@ -401,25 +643,51 @@ You have **${enrolledCount} active enrolled courses** with an average completion
           </div>
         </button>
 
+        {/* Daily Streak & XP Claim */}
         <button
           type="button"
           className={`stat-card clickable ${streakCheckedIn ? 'active' : ''}`}
           onClick={handleStreakCheckIn}
-          title="Claim daily learning streak"
+          title="Claim daily learning streak reward"
         >
           <div className="stat-icon-box" style={{ background: 'rgba(245, 158, 11, 0.18)', color: '#fcd34d' }}>
             <Flame size={24} />
           </div>
           <div className="stat-info">
             <span className="stat-value" style={{ fontSize: '1.2rem', color: '#fcd34d' }}>
-              {streakCheckedIn ? 'Checked In ✓' : 'Claim Streak'}
+              {streakCheckedIn ? '3-Day 🔥' : 'Claim Streak'}
             </span>
-            <span className="stat-label">Daily Streak</span>
+            <span className="stat-label">{userXp} XP Points</span>
           </div>
         </button>
+
+        {/* Interactive Weekly Goal Tracker */}
+        <div className="stat-card" style={{ cursor: 'default' }}>
+          <div className="stat-icon-box" style={{ background: 'rgba(168, 85, 247, 0.18)', color: '#c084fc' }}>
+            <BarChart2 size={24} />
+          </div>
+          <div className="stat-info" style={{ flex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="stat-value" style={{ fontSize: '1.1rem' }}>{loggedHours}h / {targetHours}h</span>
+              <button
+                type="button"
+                onClick={handleLogStudyTime}
+                className="btn btn-secondary btn-sm"
+                style={{ padding: '2px 6px', fontSize: '0.68rem' }}
+                title="Log 30 mins learning session"
+              >
+                +30m
+              </button>
+            </div>
+            <span className="stat-label">Weekly Target Goal</span>
+            <div className="progress-bar-container" style={{ height: '4px', marginTop: '4px' }}>
+              <div className="progress-bar-fill" style={{ width: `${(loggedHours / targetHours) * 100}%`, background: 'var(--neon-violet)' }}></div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* 3. Search, Filter & View Mode Bar */}
+      {/* 4. SEARCH, FILTER & LAYOUT CONTROL TOOLBAR */}
       <div className="search-filter-container">
         <div style={{ display: 'flex', gap: '12px', width: '100%', flexWrap: 'wrap', alignItems: 'center' }}>
           <div className="search-input-wrapper" style={{ flex: 1, minWidth: '240px' }}>
@@ -427,13 +695,21 @@ You have **${enrolledCount} active enrolled courses** with an average completion
             <input
               type="text"
               className="form-control search-input"
-              placeholder="Search by title, AI model, or instructor..."
+              placeholder="Search by title, AI model, instructor, or skill tag..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
 
-          {/* Sort Selector */}
+          {/* Sort Dropdown */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <SlidersHorizontal size={16} color="var(--text-dim)" />
             <select
@@ -443,20 +719,29 @@ You have **${enrolledCount} active enrolled courses** with an average completion
               onChange={(e) => setSortBy(e.target.value)}
             >
               <option value="RECOMMENDED">Sort: Recommended</option>
+              <option value="RATING">Sort: Top Rated ★</option>
               <option value="TITLE">Sort: Title (A-Z)</option>
               <option value="PROGRESS">Sort: Highest Progress</option>
             </select>
           </div>
 
-          {/* Grid vs List View Mode Toggle */}
+          {/* View Mode Toggle: Grid vs List vs Compact */}
           <div className="view-mode-toggle">
             <button
               type="button"
               className={`view-btn ${viewMode === 'GRID' ? 'active' : ''}`}
               onClick={() => setViewMode('GRID')}
-              title="Grid View"
+              title="Grid Cards View"
             >
               <LayoutGrid size={16} />
+            </button>
+            <button
+              type="button"
+              className={`view-btn ${viewMode === 'COMPACT' ? 'active' : ''}`}
+              onClick={() => setViewMode('COMPACT')}
+              title="Compact View"
+            >
+              <Grid2x2 size={16} />
             </button>
             <button
               type="button"
@@ -469,10 +754,10 @@ You have **${enrolledCount} active enrolled courses** with an average completion
           </div>
         </div>
 
-        {/* Category Filter Pills */}
+        {/* Category Pills Row */}
         <div className="category-pills-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-dim)', marginRight: '4px' }}>
-            <Filter size={14} /> Category:
+            <Filter size={14} /> Filter:
           </div>
 
           <button
@@ -493,6 +778,17 @@ You have **${enrolledCount} active enrolled courses** with an average completion
             </button>
           )}
 
+          {favorites.length > 0 && (
+            <button
+              type="button"
+              className={`category-pill ${selectedCategory === 'FAVORITES' ? 'active' : ''}`}
+              onClick={() => setSelectedCategory('FAVORITES')}
+              style={{ color: '#fcd34d' }}
+            >
+              ★ Bookmarks ({favorites.length})
+            </button>
+          )}
+
           {categories.map((cat) => (
             <button
               key={cat}
@@ -506,8 +802,8 @@ You have **${enrolledCount} active enrolled courses** with an average completion
         </div>
       </div>
 
-      {/* 4. Section Header */}
-      <div className="section-header">
+      {/* 5. SECTION HEADER */}
+      <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <h2>Interactive AI Courses</h2>
         </div>
@@ -516,7 +812,7 @@ You have **${enrolledCount} active enrolled courses** with an average completion
         )}
       </div>
 
-      {/* 5. Error Alert */}
+      {/* 6. ERROR ALERT */}
       {error && (
         <div className="alert alert-info">
           <AlertCircle size={18} style={{ flexShrink: 0 }} />
@@ -524,48 +820,54 @@ You have **${enrolledCount} active enrolled courses** with an average completion
         </div>
       )}
 
-      {/* 6. Loading Skeleton State */}
+      {/* 7. LOADING SKELETON */}
       {loading && <CourseGridSkeleton count={6} />}
 
-      {/* 7. Empty State */}
+      {/* 8. EMPTY STATE */}
       {!loading && filteredCourses.length === 0 && (
         <div className="state-card glass-card">
           <div className="state-icon-wrapper">
             <BookOpen size={32} />
           </div>
           <h3>No Courses Match Your Filter</h3>
-          <p>Try searching for a different keyword or resetting your category filter.</p>
+          <p>Try searching for a different keyword or resetting your filter criteria.</p>
           <button
             type="button"
             onClick={() => { setSearchTerm(''); setSelectedCategory('ALL'); }}
             className="btn btn-secondary btn-sm"
             style={{ marginTop: '8px' }}
           >
-            Reset Filters
+            Reset All Filters
           </button>
         </div>
       )}
 
-      {/* 8. GRID VIEW MODE */}
+      {/* 9. GRID VIEW MODE */}
       {!loading && filteredCourses.length > 0 && viewMode === 'GRID' && (
         <div className="courses-grid">
           {filteredCourses.map((course) => {
             const courseId = course.id || course._id;
             const progress = userProgressMap[courseId];
             const isEnrolled = progress !== undefined;
+            const isFav = favorites.includes(courseId);
             const badgeClass = getCategoryBadgeClass(course.category);
+            const skillTags = getSkillTags(course.category);
 
             return (
-              <div key={courseId} className="course-card glass-card glass-card-hover" style={{ borderTop: '3px solid var(--primary)' }}>
-                <div className="course-card-body">
+              <div 
+                key={courseId} 
+                className="course-card glass-card glass-card-hover" 
+                style={{ borderTop: `3px solid ${course.category === 'GenAI' ? '#c084fc' : course.category === 'Web Dev' ? '#6ee7b7' : course.category === 'DevOps & Cloud' ? '#fcd34d' : 'var(--primary)'}` }}
+              >
+                <div className="course-card-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span className={`badge ${badgeClass}`}>
                       {course.category || 'AI & ML'}
                     </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {course.rating && (
-                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fcd34d' }}>
-                          {course.rating}
+                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fcd34d', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <Star size={12} fill="#fcd34d" /> {course.rating}
                         </span>
                       )}
                       {isEnrolled && (
@@ -573,13 +875,28 @@ You have **${enrolledCount} active enrolled courses** with an average completion
                           <CheckCircle2 size={11} /> Enrolled
                         </span>
                       )}
+                      <button
+                        type="button"
+                        className={`bookmark-btn ${isFav ? 'bookmarked' : ''}`}
+                        onClick={(e) => { e.preventDefault(); toggleFavorite(courseId); }}
+                        title={isFav ? 'Remove Bookmark' : 'Bookmark Course'}
+                      >
+                        <Star size={14} fill={isFav ? '#fcd34d' : 'none'} />
+                      </button>
                     </div>
                   </div>
 
-                  <h3 className="course-title">{course.title || course.name}</h3>
+                  <h3 className="course-title" style={{ fontSize: '1.25rem' }}>{course.title || course.name}</h3>
                   <p className="course-description">{course.description}</p>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+                  {/* Skill tags */}
+                  <div className="skill-tags-row">
+                    {skillTags.map((tag) => (
+                      <span key={tag} className="skill-tag-pill">{tag}</span>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '4px' }}>
                     {course.instructor && (
                       <div className="course-meta">
                         <User size={13} />
@@ -595,9 +912,9 @@ You have **${enrolledCount} active enrolled courses** with an average completion
                   </div>
 
                   {isEnrolled && (
-                    <div className="progress-section">
+                    <div className="progress-section" style={{ marginTop: '4px' }}>
                       <div className="progress-label">
-                        <span>Progress</span>
+                        <span>Completion Progress</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <strong>{progress}%</strong>
                           {progress < 100 && (
@@ -615,21 +932,18 @@ You have **${enrolledCount} active enrolled courses** with an average completion
                         </div>
                       </div>
                       <div className="progress-bar-container">
-                        <div
-                          className="progress-bar-fill"
-                          style={{ width: `${progress}%` }}
-                        ></div>
+                        <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div className="course-card-footer" style={{ display: 'flex', gap: '8px' }}>
+                <div className="course-card-footer" style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                   <button
                     type="button"
-                    onClick={() => setPreviewCourse(course)}
+                    onClick={() => { setPreviewCourse(course); setPreviewTab('overview'); }}
                     className="btn btn-secondary btn-sm"
-                    title="Quick preview syllabus"
+                    title="Quick preview course syllabus"
                   >
                     <Eye size={15} />
                   </button>
@@ -645,7 +959,50 @@ You have **${enrolledCount} active enrolled courses** with an average completion
         </div>
       )}
 
-      {/* 8. LIST VIEW MODE */}
+      {/* 10. COMPACT VIEW MODE */}
+      {!loading && filteredCourses.length > 0 && viewMode === 'COMPACT' && (
+        <div className="courses-compact-view">
+          {filteredCourses.map((course) => {
+            const courseId = course.id || course._id;
+            const progress = userProgressMap[courseId];
+            const isEnrolled = progress !== undefined;
+            const isFav = favorites.includes(courseId);
+
+            return (
+              <div key={courseId} className="compact-course-card glass-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <span className={`badge ${getCategoryBadgeClass(course.category)}`} style={{ fontSize: '0.7rem' }}>
+                    {course.category || 'AI'}
+                  </span>
+                  <button
+                    type="button"
+                    className={`bookmark-btn ${isFav ? 'bookmarked' : ''}`}
+                    onClick={() => toggleFavorite(courseId)}
+                    style={{ width: '26px', height: '26px' }}
+                  >
+                    <Star size={12} fill={isFav ? '#fcd34d' : 'none'} />
+                  </button>
+                </div>
+
+                <div>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: '4px 0' }}>{course.title}</h4>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.description}</p>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#fcd34d', fontWeight: 600 }}>★ {course.rating || '4.8'}</span>
+                  <Link to={`/courses/${courseId}`} className="btn btn-primary btn-sm">
+                    <span>{isEnrolled ? 'Open' : 'Enroll'}</span>
+                    <ArrowRight size={12} />
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 11. LIST VIEW MODE */}
       {!loading && filteredCourses.length > 0 && viewMode === 'LIST' && (
         <div className="courses-list-view">
           {filteredCourses.map((course) => {
@@ -659,11 +1016,11 @@ You have **${enrolledCount} active enrolled courses** with an average completion
                 <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span className={`badge ${badgeClass}`}>{course.category || 'AI & ML'}</span>
-                    <span style={{ fontSize: '0.75rem', color: '#fcd34d', fontWeight: 600 }}>{course.rating}</span>
+                    <span style={{ fontSize: '0.75rem', color: '#fcd34d', fontWeight: 600 }}>★ {course.rating}</span>
                     {isEnrolled && <span className="badge badge-success">Enrolled</span>}
                   </div>
                   <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{course.title}</h3>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineClamp: 2 }}>{course.description}</p>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{course.description}</p>
                 </div>
 
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '160px' }}>
@@ -689,7 +1046,7 @@ You have **${enrolledCount} active enrolled courses** with an average completion
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <button
                     type="button"
-                    onClick={() => setPreviewCourse(course)}
+                    onClick={() => { setPreviewCourse(course); setPreviewTab('overview'); }}
                     className="btn btn-secondary btn-sm"
                     title="Quick preview syllabus"
                   >
@@ -707,7 +1064,7 @@ You have **${enrolledCount} active enrolled courses** with an average completion
         </div>
       )}
 
-      {/* 9. Interactive Quick Preview Modal */}
+      {/* 12. INTERACTIVE COURSE PREVIEW MODAL */}
       {previewCourse && (
         <div className="modal-overlay" onClick={() => setPreviewCourse(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -727,34 +1084,63 @@ You have **${enrolledCount} active enrolled courses** with an average completion
               <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>{previewCourse.description}</p>
             </div>
 
-            <div className="course-info-grid">
-              <div className="info-item">
-                <span className="info-label">Instructor</span>
-                <span className="info-value"><User size={14} color="var(--primary)" /> {previewCourse.instructor || 'N/A'}</span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Duration</span>
-                <span className="info-value"><Clock size={14} color="var(--accent)" /> {previewCourse.duration || 'Self-paced'}</span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Prerequisites</span>
-                <span className="info-value">{previewCourse.prerequisites || 'Basic Programming'}</span>
-              </div>
+            {/* Modal Tabs */}
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+              <button
+                className={`btn btn-sm ${previewTab === 'overview' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setPreviewTab('overview')}
+              >
+                Overview
+              </button>
+              <button
+                className={`btn btn-sm ${previewTab === 'syllabus' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setPreviewTab('syllabus')}
+              >
+                Syllabus Modules
+              </button>
+              <button
+                className={`btn btn-sm ${previewTab === 'skills' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setPreviewTab('skills')}
+              >
+                AI Skills Gained
+              </button>
             </div>
 
-            {previewCourse.modules && previewCourse.modules.length > 0 && (
-              <div>
-                <h4 style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: '8px' }}>
-                  Course Syllabus Highlights
-                </h4>
-                <div className="modal-syllabus-list">
-                  {previewCourse.modules.map((mod, idx) => (
-                    <div key={idx} className="syllabus-item">
-                      <CheckCircle2 size={16} color="var(--success)" />
-                      <span>{mod}</span>
-                    </div>
-                  ))}
+            {previewTab === 'overview' && (
+              <div className="course-info-grid">
+                <div className="info-item">
+                  <span className="info-label">Instructor</span>
+                  <span className="info-value"><User size={14} color="var(--primary)" /> {previewCourse.instructor || 'N/A'}</span>
                 </div>
+                <div className="info-item">
+                  <span className="info-label">Duration</span>
+                  <span className="info-value"><Clock size={14} color="var(--accent)" /> {previewCourse.duration || 'Self-paced'}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Prerequisites</span>
+                  <span className="info-value">{previewCourse.prerequisites || 'Basic Programming'}</span>
+                </div>
+              </div>
+            )}
+
+            {previewTab === 'syllabus' && previewCourse.modules && (
+              <div className="modal-syllabus-list">
+                {previewCourse.modules.map((mod, idx) => (
+                  <div key={idx} className="syllabus-item">
+                    <CheckCircle2 size={16} color="var(--success)" />
+                    <span>{mod}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {previewTab === 'skills' && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', padding: '8px 0' }}>
+                {getSkillTags(previewCourse.category).map((s) => (
+                  <span key={s} className="badge badge-info" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
+                    <Zap size={13} /> {s}
+                  </span>
+                ))}
               </div>
             )}
 
@@ -791,6 +1177,87 @@ You have **${enrolledCount} active enrolled courses** with an average completion
           </div>
         </div>
       )}
+
+      {/* 13. STREAK REWARD CELEBRATION MODAL */}
+      {showStreakModal && (
+        <div className="modal-overlay" onClick={() => setShowStreakModal(false)}>
+          <div className="streak-celebration-card animate-slide-up" onClick={(e) => e.stopPropagation()}>
+            <div className="streak-flame-badge">
+              <Flame size={48} color="#f59e0b" />
+            </div>
+            <h2 style={{ fontSize: '1.8rem', fontWeight: 800 }}>Daily Streak Claimed! 🔥</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', maxWidth: '360px' }}>
+              You logged in today and earned <strong>+50 AI XP</strong>. Keep up your streak to unlock exclusive tutor badges!
+            </p>
+            <div className="badge badge-warning" style={{ fontSize: '1rem', padding: '6px 16px' }}>
+              Total XP: {userXp} XP
+            </div>
+            <button
+              className="btn btn-primary btn-block"
+              onClick={() => setShowStreakModal(false)}
+              style={{ marginTop: '12px' }}
+            >
+              Continue Learning
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 14. FLOATING AI ASSISTANT FAB & DRAWER */}
+      <button
+        className="floating-ai-fab"
+        onClick={() => setFabOpen((prev) => !prev)}
+        title="Open AI Tutor Helper"
+      >
+        {fabOpen ? <X size={26} /> : <Bot size={26} />}
+      </button>
+
+      {fabOpen && (
+        <div className="floating-ai-drawer animate-slide-up">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: '#67e8f9' }}>
+              <Bot size={20} /> AI Tutor Assistant
+            </div>
+            <button onClick={() => setFabOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}>
+              <X size={16} />
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '240px', overflowY: 'auto' }}>
+            {fabMessages.map((msg, i) => (
+              <div
+                key={i}
+                style={{
+                  alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                  background: msg.sender === 'user' ? 'var(--primary-gradient)' : 'rgba(255, 255, 255, 0.08)',
+                  padding: '8px 12px',
+                  borderRadius: '12px',
+                  fontSize: '0.85rem',
+                  maxWidth: '85%'
+                }}
+              >
+                {msg.text}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Ask AI tutor..."
+              value={fabPrompt}
+              onChange={(e) => setFabPrompt(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendFabMessage()}
+              style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
+            />
+            <button onClick={handleSendFabMessage} className="btn btn-primary btn-sm">
+              <Send size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
