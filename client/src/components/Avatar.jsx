@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const COLORS = [
   'linear-gradient(135deg, #6366f1, #8b5cf6)',
@@ -30,7 +30,42 @@ const getColorIndex = (str) => {
   return Math.abs(hash) % COLORS.length;
 };
 
-const Avatar = ({ name, size = 36, className = '' }) => {
+const Avatar = ({ name, src, size = 36, className = '' }) => {
+  const [storedSrc, setStoredSrc] = useState(() => localStorage.getItem('intellilearn_user_avatar'));
+
+  useEffect(() => {
+    const handleAvatarUpdate = () => {
+      setStoredSrc(localStorage.getItem('intellilearn_user_avatar'));
+    };
+    window.addEventListener('avatar_updated', handleAvatarUpdate);
+    window.addEventListener('storage', handleAvatarUpdate);
+    return () => {
+      window.removeEventListener('avatar_updated', handleAvatarUpdate);
+      window.removeEventListener('storage', handleAvatarUpdate);
+    };
+  }, []);
+
+  const imageToDisplay = src || storedSrc;
+
+  if (imageToDisplay) {
+    return (
+      <img
+        src={imageToDisplay}
+        alt={name || 'User Avatar'}
+        className={`avatar-circle ${className}`}
+        style={{
+          width: `${size}px`,
+          height: `${size}px`,
+          objectFit: 'cover',
+          borderRadius: '50%',
+          border: '2px solid rgba(168, 85, 247, 0.5)',
+          boxShadow: '0 0 10px rgba(168, 85, 247, 0.3)',
+        }}
+        title={name}
+      />
+    );
+  }
+
   const initials = getInitials(name);
   const background = COLORS[getColorIndex(name)];
 

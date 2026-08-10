@@ -121,6 +121,35 @@ const DashboardPage = () => {
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [userXp, setUserXp] = useState(350);
 
+  // Interactive Profile Data Sync
+  const [profileData, setProfileData] = useState(() => {
+    try {
+      const saved = localStorage.getItem('intellilearn_profile_data');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      try {
+        const saved = localStorage.getItem('intellilearn_profile_data');
+        if (saved) setProfileData(JSON.parse(saved));
+      } catch (e) {
+        console.warn('Could not parse profile data', e);
+      }
+    };
+    window.addEventListener('profile_updated', handleProfileUpdate);
+    window.addEventListener('storage', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('profile_updated', handleProfileUpdate);
+      window.removeEventListener('storage', handleProfileUpdate);
+    };
+  }, []);
+
+  const displayUsername = profileData?.username || user?.username || 'Learner';
+
   // Interactive Study Goal Tracker & Time Analytics Modal (in hours)
   const [loggedHours, setLoggedHours] = useState(3.5);
   const [showTimeAnalyticsModal, setShowTimeAnalyticsModal] = useState(false);
@@ -470,199 +499,279 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
 
   return (
     <div className="dashboard-container animate-fade-in" style={{ position: 'relative' }}>
-      
-      {/* 0. TOP LIVE STUDY SESSION BANNER */}
+
+      {/* ═══ LIVE STUDY SESSION BANNER ═══ */}
       {timerRunning && (
-        <div 
-          className="glass-card animate-slide-down"
-          style={{
-            marginBottom: '20px',
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(168, 85, 247, 0.2))',
-            border: '1.5px solid rgba(16, 185, 129, 0.6)',
-            boxShadow: '0 10px 30px rgba(16, 185, 129, 0.3)',
-            borderRadius: '16px',
-            padding: '12px 20px',
-            display: 'flex',
-            justify: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '12px',
-            backdropFilter: 'blur(16px)'
-          }}
-        >
+        <div style={{
+          marginBottom: '16px', padding: '14px 24px', borderRadius: '16px',
+          background: 'linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(99,102,241,0.12) 100%)',
+          border: '1px solid rgba(16,185,129,0.35)',
+          boxShadow: '0 0 30px rgba(16,185,129,0.15), inset 0 1px 0 rgba(255,255,255,0.05)',
+          backdropFilter: 'blur(16px)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexWrap: 'wrap', gap: '12px',
+          animation: 'dashFadeSlideIn 0.4s ease',
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 10px #ef4444', display: 'inline-block' }} />
-              <Clock size={18} color="#6ee7b7" />
-              <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f3e8ff', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Live Study Session Active:
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 12px #ef4444', display: 'inline-block', animation: 'dashPulse 1.5s ease-in-out infinite' }} />
+              <Clock size={17} color="#6ee7b7" />
+              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#d1d5db', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Study Session:
               </span>
             </div>
             <span style={{
-              fontSize: '1.4rem',
-              fontWeight: 900,
-              fontFamily: 'monospace',
-              color: '#6ee7b7',
-              background: 'rgba(15, 23, 42, 0.75)',
-              padding: '2px 12px',
-              borderRadius: '8px',
-              border: '1px solid rgba(16, 185, 129, 0.4)'
+              fontSize: '1.5rem', fontWeight: 900, fontFamily: "'JetBrains Mono', monospace",
+              color: '#6ee7b7', background: 'rgba(0,0,0,0.3)', padding: '4px 16px',
+              borderRadius: '10px', border: '1px solid rgba(16,185,129,0.3)',
+              letterSpacing: '0.05em',
             }}>
               {formatTimer(elapsedSeconds)}
             </span>
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
             <button
-              type="button"
               onClick={() => setTimerRunning(false)}
-              className="btn btn-secondary btn-sm"
-              style={{ padding: '6px 12px', fontSize: '0.78rem', color: '#fca5a5', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px',
+                borderRadius: '10px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+                background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
+                color: '#fca5a5', transition: 'all 0.15s ease',
+              }}
             >
-              <Pause size={14} /> Pause
+              <Pause size={13} /> Pause
             </button>
-
             <button
-              type="button"
               onClick={() => setShowTimeAnalyticsModal(true)}
-              className="btn btn-secondary btn-sm"
-              style={{ padding: '6px 12px', fontSize: '0.78rem', color: '#c084fc', borderColor: 'rgba(168, 85, 247, 0.4)' }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px',
+                borderRadius: '10px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+                background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.3)',
+                color: '#c084fc', transition: 'all 0.15s ease',
+              }}
             >
-              <PieChart size={14} /> View Analytics
+              <PieChart size={13} /> Analytics
             </button>
           </div>
         </div>
       )}
 
-      {/* 1. HERO BANNER WITH AMBIENT MESH GRADIENT & AI COMMAND TERMINAL */}
-      <div 
-        className="welcome-banner glass-card" 
-        style={{ 
-          background: 'linear-gradient(135deg, rgba(13, 19, 36, 0.96) 0%, rgba(21, 30, 54, 0.92) 100%)', 
-          border: '1px solid rgba(6, 182, 212, 0.35)', 
-          boxShadow: '0 0 40px rgba(6, 182, 212, 0.15)',
-          position: 'relative',
-          overflow: 'hidden'
-        }}
-      >
-        <div className="hero-mesh-bg"></div>
+      {/* ═══ HERO SECTION ═══ */}
+      <div style={{
+        position: 'relative', borderRadius: '24px', overflow: 'hidden',
+        background: 'linear-gradient(160deg, rgba(11,15,25,0.98) 0%, rgba(15,23,42,0.95) 40%, rgba(30,27,75,0.4) 100%)',
+        border: '1px solid rgba(99,102,241,0.15)',
+        boxShadow: '0 4px 60px rgba(0,0,0,0.4)',
+        marginBottom: '20px',
+      }}>
+        {/* Animated mesh background */}
+        <div style={{
+          position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none',
+        }}>
+          <div style={{
+            position: 'absolute', width: '500px', height: '500px', borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%)',
+            top: '-200px', right: '-100px', animation: 'dashFloat1 8s ease-in-out infinite',
+          }} />
+          <div style={{
+            position: 'absolute', width: '400px', height: '400px', borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(6,182,212,0.06) 0%, transparent 70%)',
+            bottom: '-150px', left: '-80px', animation: 'dashFloat2 10s ease-in-out infinite',
+          }} />
+          <div style={{
+            position: 'absolute', width: '250px', height: '250px', borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(168,85,247,0.07) 0%, transparent 70%)',
+            top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            animation: 'dashFloat3 12s ease-in-out infinite',
+          }} />
+          {/* Grid lines overlay */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            backgroundImage: 'linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px)',
+            backgroundSize: '60px 60px',
+          }} />
+        </div>
 
-        <div className="banner-content" style={{ display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(6, 182, 212, 0.15)', border: '1px solid rgba(6, 182, 212, 0.4)', padding: '5px 16px', borderRadius: '20px', fontSize: '0.8rem', color: '#67e8f9', fontWeight: 600, marginBottom: '12px' }}>
-                <Sparkles size={14} color="var(--neon-cyan)" /> Intelligent AI Learning Hub & Assistant
-              </div>
-              <h1 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>
-                {timeGreeting.text}, {user?.username || 'Learner'}! {timeGreeting.emoji}
-              </h1>
-              <p style={{ maxWidth: '750px', color: 'var(--text-muted)', fontSize: '1rem', marginTop: '8px' }}>
-                Master cutting-edge AI technologies, prompt your AI tutor, track real-time progress, and earn verified skill credentials.
-              </p>
+        <div style={{ position: 'relative', zIndex: 1, padding: '32px 36px 28px' }}>
+          {/* Top badges row */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '8px',
+              background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)',
+              padding: '6px 16px', borderRadius: '20px', fontSize: '0.78rem',
+              color: '#a5b4fc', fontWeight: 700, backdropFilter: 'blur(8px)',
+              animation: 'dashFadeSlideIn 0.5s ease',
+            }}>
+              <Sparkles size={14} color="#818cf8" /> AI Learning Hub & Assistant
             </div>
 
-            {/* AI Engine Status Badge */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid var(--border-color)', padding: '8px 14px', borderRadius: 'var(--radius-lg)' }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }}></div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-main)', fontWeight: 700 }}>AI Tutor Online</span>
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>GPT-4o / Claude 3.5 Hybrid</span>
-              </div>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(255,255,255,0.06)', padding: '6px 14px', borderRadius: '12px',
+              animation: 'dashFadeSlideIn 0.6s ease',
+            }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', animation: 'dashPulse 2s ease-in-out infinite' }} />
+              <span style={{ fontSize: '0.78rem', color: '#e2e8f0', fontWeight: 700 }}>AI Tutor Online</span>
+              <span style={{
+                fontSize: '0.68rem', color: '#94a3b8',
+                background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '6px',
+              }}>GPT-4o / Claude 3.5</span>
             </div>
           </div>
 
-          {/* Interactive AI Sandbox Prompt Command Bar */}
-          <div className="ai-sandbox-card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.95rem', color: '#67e8f9' }}>
-                <Bot size={20} color="var(--neon-cyan)" /> AI Tutor Command Terminal
+          {/* Greeting */}
+          <h1 style={{
+            fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', fontWeight: 900, margin: '0 0 8px 0',
+            letterSpacing: '-0.03em', lineHeight: 1.15,
+            background: 'linear-gradient(135deg, #e2e8f0 0%, #a5b4fc 40%, #c084fc 70%, #22d3ee 100%)',
+            backgroundSize: '200% 200%',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            animation: 'dashGradientShift 6s ease infinite',
+          }}>
+            {timeGreeting.text}, {displayUsername}! {timeGreeting.emoji}
+          </h1>
+
+          <p style={{
+            maxWidth: '640px', color: '#64748b', fontSize: '0.92rem',
+            margin: '0 0 24px 0', lineHeight: 1.6,
+            animation: 'dashFadeSlideIn 0.7s ease',
+          }}>
+            Master cutting-edge AI technologies, prompt your AI tutor, track real-time progress, and earn verified skill credentials.
+          </p>
+
+          {/* ── AI COMMAND TERMINAL ── */}
+          <div style={{
+            background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(99,102,241,0.15)', borderRadius: '18px',
+            padding: '20px 24px',
+            animation: 'dashFadeSlideIn 0.8s ease',
+          }}>
+            {/* Terminal header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '32px', height: '32px', borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #6366f1, #06b6d4)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 4px 15px rgba(99,102,241,0.3)',
+                }}>
+                  <Bot size={17} color="#fff" />
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#e2e8f0' }}>AI Command Terminal</span>
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }} />
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e' }} />
+                  </div>
+                </div>
               </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Zap size={12} color="var(--neon-amber)" /> Instant AI Recommendations & Insights
+              <span style={{ fontSize: '0.72rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Zap size={11} color="#f59e0b" /> Instant AI Insights
               </span>
             </div>
 
-            {/* Quick Prompt Chips */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              <button
-                type="button"
-                className="ai-sandbox-chip"
-                onClick={() => handleAiSandboxPrompt('Recommend a course for my goals')}
-              >
-                <Target size={13} /> Recommend Course
-              </button>
-
-              <button
-                type="button"
-                className="ai-sandbox-chip"
-                onClick={() => handleAiSandboxPrompt('What AI skills are in demand?')}
-              >
-                <Zap size={13} /> In-Demand AI Skills
-              </button>
-
-              <button
-                type="button"
-                className="ai-sandbox-chip"
-                onClick={() => handleAiSandboxPrompt('Show my learning roadmap')}
-              >
-                <Flame size={13} /> My Roadmap
-              </button>
-
-              <button
-                type="button"
-                className="ai-sandbox-chip"
-                onClick={() => handleAiSandboxPrompt('Explain Transformer self-attention')}
-              >
-                <HelpCircle size={13} /> Explain Transformers
-              </button>
+            {/* Quick prompt chips */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+              {[
+                { label: 'Recommend Course', icon: Target, color: '#6366f1', prompt: 'Recommend a course for my goals' },
+                { label: 'In-Demand Skills', icon: Zap, color: '#f59e0b', prompt: 'What AI skills are in demand?' },
+                { label: 'My Roadmap', icon: Flame, color: '#ef4444', prompt: 'Show my learning roadmap' },
+                { label: 'Explain Transformers', icon: HelpCircle, color: '#06b6d4', prompt: 'Explain Transformer self-attention' },
+              ].map((chip, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleAiSandboxPrompt(chip.prompt)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '7px 14px', borderRadius: '10px',
+                    background: `${chip.color}12`, border: `1px solid ${chip.color}30`,
+                    color: chip.color, fontSize: '0.78rem', fontWeight: 700,
+                    cursor: 'pointer', transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = `${chip.color}25`; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = `${chip.color}12`; e.currentTarget.style.transform = 'translateY(0)'; }}
+                >
+                  <chip.icon size={13} /> {chip.label}
+                </button>
+              ))}
             </div>
 
-            {/* Custom Prompt Input */}
+            {/* Input bar */}
             <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="text"
-                className="form-control"
-                style={{ background: 'rgba(11, 17, 32, 0.85)', border: '1px solid rgba(6, 182, 212, 0.25)', fontSize: '0.9rem' }}
-                placeholder="Ask AI tutor anything about course recommendations, skills, or concepts..."
-                value={aiSandboxPrompt}
-                onChange={(e) => setAiSandboxPrompt(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAiSandboxPrompt()}
-              />
-              {aiSandboxPrompt && (
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => { setAiSandboxPrompt(''); setAiSandboxResponse(null); }}
-                  title="Clear prompt"
-                >
-                  <X size={16} />
-                </button>
-              )}
+              <div style={{ flex: 1, position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="Ask AI tutor anything about courses, skills, or concepts..."
+                  value={aiSandboxPrompt}
+                  onChange={(e) => setAiSandboxPrompt(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAiSandboxPrompt()}
+                  style={{
+                    width: '100%', padding: '12px 40px 12px 16px', borderRadius: '12px',
+                    background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.08)',
+                    color: '#e2e8f0', fontSize: '0.88rem', fontWeight: 500,
+                    outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box',
+                  }}
+                  onFocus={e => { e.target.style.borderColor = 'rgba(99,102,241,0.5)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.1)'; }}
+                  onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }}
+                />
+                {aiSandboxPrompt && (
+                  <button
+                    onClick={() => { setAiSandboxPrompt(''); setAiSandboxResponse(null); }}
+                    style={{
+                      position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', color: '#475569', cursor: 'pointer',
+                      display: 'flex', padding: '4px',
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
               <button
-                type="button"
-                className="btn btn-primary"
                 onClick={() => handleAiSandboxPrompt()}
                 disabled={aiSandboxLoading}
-                style={{ padding: '0.65rem 1.25rem' }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '48px', height: '48px', borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                  border: 'none', color: '#fff', cursor: 'pointer',
+                  transition: 'all 0.2s ease', flexShrink: 0,
+                  boxShadow: '0 4px 20px rgba(99,102,241,0.3)',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 6px 25px rgba(99,102,241,0.4)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(99,102,241,0.3)'; }}
               >
-                {aiSandboxLoading ? <span className="spinner"></span> : <Send size={16} />}
+                {aiSandboxLoading ? <span className="spinner"></span> : <Send size={17} />}
               </button>
             </div>
 
-            {/* Live Response Card */}
+            {/* Loading state */}
             {aiSandboxLoading && (
-              <div style={{ fontSize: '0.85rem', color: '#a5b4fc', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0' }}>
-                <span className="spinner"></span> AI Tutor is generating custom insights...
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', fontSize: '0.82rem', color: '#a5b4fc' }}>
+                <span className="spinner"></span> Generating insights...
               </div>
             )}
 
+            {/* Response card */}
             {aiSandboxResponse && (
-              <div style={{ padding: '16px', background: 'rgba(11, 17, 32, 0.95)', border: '1px solid rgba(6, 182, 212, 0.35)', borderRadius: '12px', fontSize: '0.9rem', lineHeight: 1.6, whiteSpace: 'pre-line', animation: 'slideUp 0.25s ease', position: 'relative' }}>
-                <button 
-                  onClick={() => setAiSandboxResponse(null)} 
-                  style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}
+              <div style={{
+                marginTop: '14px', padding: '16px 20px', borderRadius: '14px',
+                background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)',
+                fontSize: '0.88rem', lineHeight: 1.65, whiteSpace: 'pre-line', color: '#cbd5e1',
+                position: 'relative', animation: 'dashFadeSlideIn 0.3s ease',
+              }}>
+                <button
+                  onClick={() => setAiSandboxResponse(null)}
+                  style={{
+                    position: 'absolute', top: '10px', right: '10px',
+                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '6px', padding: '4px', color: '#64748b', cursor: 'pointer',
+                    display: 'flex',
+                  }}
                 >
-                  <X size={14} />
+                  <X size={12} />
                 </button>
                 {aiSandboxResponse}
               </div>
@@ -671,186 +780,267 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
         </div>
       </div>
 
-      {/* 2. CONTINUE LEARNING BANNER (If Enrolled Courses Exist) */}
+      {/* ═══ CONTINUE LEARNING BANNER ═══ */}
       {enrolledCoursesList.length > 0 && (
-        <div className="continue-learning-section">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <PlayCircle size={20} color="var(--success)" /> Continue Learning
+        <div style={{ marginBottom: '20px', animation: 'dashFadeSlideIn 0.9s ease' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', color: '#e2e8f0', margin: 0 }}>
+              <PlayCircle size={18} color="#22c55e" /> Continue Learning
             </h3>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+            <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600 }}>
               {enrolledCoursesList.length} Active {enrolledCoursesList.length === 1 ? 'Course' : 'Courses'}
             </span>
           </div>
 
-          <div className="continue-learning-card glass-card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: '260px' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6ee7b7', flexShrink: 0 }}>
-                <GraduationCap size={24} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span className={`badge ${getCategoryBadgeClass(enrolledCoursesList[0].category)}`} style={{ width: 'fit-content', fontSize: '0.7rem' }}>
-                  {enrolledCoursesList[0].category || 'In Progress'}
-                </span>
-                <h4 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{enrolledCoursesList[0].title}</h4>
-              </div>
+          <div style={{
+            padding: '18px 24px', borderRadius: '16px',
+            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+            display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap',
+            transition: 'all 0.2s ease',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(34,197,94,0.25)'; e.currentTarget.style.background = 'rgba(34,197,94,0.03)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
+          >
+            <div style={{
+              width: '48px', height: '48px', borderRadius: '14px', flexShrink: 0,
+              background: 'linear-gradient(135deg, rgba(34,197,94,0.15), rgba(6,182,212,0.15))',
+              border: '1px solid rgba(34,197,94,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <GraduationCap size={22} color="#6ee7b7" />
             </div>
 
-            <div style={{ flex: 1, minWidth: '200px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Progress</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '200px' }}>
+              <span className={`badge ${getCategoryBadgeClass(enrolledCoursesList[0].category)}`} style={{ width: 'fit-content', fontSize: '0.68rem' }}>
+                {enrolledCoursesList[0].category || 'In Progress'}
+              </span>
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: '#e2e8f0' }}>{enrolledCoursesList[0].title}</h4>
+            </div>
+
+            <div style={{ flex: 1, minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                <span style={{ color: '#64748b' }}>Progress</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <strong style={{ color: '#6ee7b7' }}>{userProgressMap[enrolledCoursesList[0].id || enrolledCoursesList[0]._id] || 0}%</strong>
                   {(userProgressMap[enrolledCoursesList[0].id || enrolledCoursesList[0]._id] || 0) < 100 && (
                     <button
-                      type="button"
                       onClick={() => handleQuickProgressBump(enrolledCoursesList[0].id || enrolledCoursesList[0]._id, userProgressMap[enrolledCoursesList[0].id || enrolledCoursesList[0]._id])}
                       disabled={actionLoadingId === (enrolledCoursesList[0].id || enrolledCoursesList[0]._id)}
-                      className="btn btn-secondary btn-sm"
-                      style={{ padding: '2px 8px', fontSize: '0.7rem' }}
-                      title="Add 10% progress bump"
+                      style={{
+                        padding: '2px 8px', borderRadius: '6px', fontSize: '0.68rem', fontWeight: 700,
+                        background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)',
+                        color: '#6ee7b7', cursor: 'pointer',
+                      }}
                     >
                       +10%
                     </button>
                   )}
                 </div>
               </div>
-              <div className="progress-bar-container" style={{ height: '8px' }}>
-                <div className="progress-bar-fill" style={{ width: `${userProgressMap[enrolledCoursesList[0].id || enrolledCoursesList[0]._id] || 0}%`, background: 'var(--accent-gradient)' }}></div>
+              <div className="progress-bar-container" style={{ height: '6px' }}>
+                <div className="progress-bar-fill" style={{ width: `${userProgressMap[enrolledCoursesList[0].id || enrolledCoursesList[0]._id] || 0}%`, background: 'linear-gradient(90deg, #22c55e, #06b6d4)' }}></div>
               </div>
             </div>
 
-            <Link to={`/courses/${enrolledCoursesList[0].id || enrolledCoursesList[0]._id}`} className="btn btn-primary" style={{ flexShrink: 0 }}>
-              <span>Resume Lesson</span>
-              <ArrowRight size={16} />
+            <Link to={`/courses/${enrolledCoursesList[0].id || enrolledCoursesList[0]._id}`} style={{
+              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px',
+              borderRadius: '12px', background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+              color: '#fff', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 700,
+              flexShrink: 0, transition: 'all 0.2s ease',
+              boxShadow: '0 4px 15px rgba(99,102,241,0.3)',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 25px rgba(99,102,241,0.4)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(99,102,241,0.3)'; }}
+            >
+              Resume <ArrowRight size={15} />
             </Link>
           </div>
         </div>
       )}
 
-      {/* 3. KEY METRIC OVERVIEW CARDS & GAMIFIED GOAL TRACKER */}
-      <div className="stats-overview-grid">
+      {/* ═══ STATS CARDS ═══ */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        gap: '14px', marginBottom: '24px',
+      }}>
         {/* Available Courses */}
         <button
-          type="button"
-          className={`stat-card clickable ${selectedCategory === 'ALL' && sortBy !== 'PROGRESS' ? 'active' : ''}`}
-          onClick={() => {
-            setSelectedCategory('ALL');
-            setSearchTerm('');
-            setSortBy('RECOMMENDED');
-            addToast('Showing all available courses in catalog', 'info', 'Catalog View');
+          onClick={() => { setSelectedCategory('ALL'); setSearchTerm(''); setSortBy('RECOMMENDED'); addToast('Showing all courses', 'info', 'Catalog'); }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '14px',
+            padding: '18px 20px', borderRadius: '16px', cursor: 'pointer',
+            background: selectedCategory === 'ALL' && sortBy !== 'PROGRESS' ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.02)',
+            border: selectedCategory === 'ALL' && sortBy !== 'PROGRESS' ? '1px solid rgba(99,102,241,0.35)' : '1px solid rgba(255,255,255,0.06)',
+            transition: 'all 0.25s ease', textAlign: 'left',
           }}
-          title="Show all available courses"
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(99,102,241,0.15)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
         >
-          <div className="stat-icon-box" style={{ background: 'rgba(99, 102, 241, 0.18)', color: '#818cf8' }}>
-            <BookOpen size={24} />
+          <div style={{
+            width: '46px', height: '46px', borderRadius: '14px', flexShrink: 0,
+            background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <BookOpen size={22} color="#818cf8" />
           </div>
-          <div className="stat-info">
-            <span className="stat-value">{courses.length}</span>
-            <span className="stat-label">Available Courses</span>
+          <div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#e2e8f0', lineHeight: 1 }}>{courses.length}</div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Available Courses</div>
           </div>
         </button>
 
-        {/* Enrolled Courses */}
+        {/* Enrolled */}
         <button
-          type="button"
-          className={`stat-card clickable ${selectedCategory === 'ENROLLED' ? 'active' : ''}`}
           onClick={() => {
-            setSelectedCategory('ENROLLED');
-            setSearchTerm('');
-            addToast(
-              enrolledCount > 0 
-                ? `Filtered to your ${enrolledCount} enrolled courses`
-                : 'No enrolled courses yet. Click "View & Enroll" on any course card!',
-              enrolledCount > 0 ? 'info' : 'warning',
-              'Enrollments Filter'
-            );
+            setSelectedCategory('ENROLLED'); setSearchTerm('');
+            addToast(enrolledCount > 0 ? `Filtered to ${enrolledCount} enrolled courses` : 'No enrolled courses yet!', enrolledCount > 0 ? 'info' : 'warning', 'Enrollments');
           }}
-          title="Filter by enrolled courses"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '14px',
+            padding: '18px 20px', borderRadius: '16px', cursor: 'pointer',
+            background: selectedCategory === 'ENROLLED' ? 'rgba(6,182,212,0.1)' : 'rgba(255,255,255,0.02)',
+            border: selectedCategory === 'ENROLLED' ? '1px solid rgba(6,182,212,0.35)' : '1px solid rgba(255,255,255,0.06)',
+            transition: 'all 0.25s ease', textAlign: 'left',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(6,182,212,0.15)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
         >
-          <div className="stat-icon-box" style={{ background: 'rgba(6, 182, 212, 0.18)', color: '#67e8f9' }}>
-            <GraduationCap size={24} />
+          <div style={{
+            width: '46px', height: '46px', borderRadius: '14px', flexShrink: 0,
+            background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <GraduationCap size={22} color="#22d3ee" />
           </div>
-          <div className="stat-info">
-            <span className="stat-value">{enrolledCount}</span>
-            <span className="stat-label">Enrolled Courses</span>
+          <div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#e2e8f0', lineHeight: 1 }}>{enrolledCount}</div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Enrolled Courses</div>
           </div>
         </button>
 
-        {/* Average Mastery / Progress */}
+        {/* Progress */}
         <button
-          type="button"
-          className={`stat-card clickable ${sortBy === 'PROGRESS' ? 'active' : ''}`}
-          onClick={() => {
-            setSortBy('PROGRESS');
-            setSelectedCategory('ALL');
-            setSearchTerm('');
-            addToast('Courses sorted by highest completion percentage', 'success', 'Sorted by Progress');
+          onClick={() => { setSortBy('PROGRESS'); setSelectedCategory('ALL'); setSearchTerm(''); addToast('Sorted by progress', 'success', 'Progress Sort'); }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '14px',
+            padding: '18px 20px', borderRadius: '16px', cursor: 'pointer',
+            background: sortBy === 'PROGRESS' ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.02)',
+            border: sortBy === 'PROGRESS' ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(255,255,255,0.06)',
+            transition: 'all 0.25s ease', textAlign: 'left',
           }}
-          title="Sort courses by completion progress"
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(16,185,129,0.15)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
         >
-          <div className="stat-icon-box" style={{ background: 'rgba(16, 185, 129, 0.18)', color: '#6ee7b7' }}>
-            <TrendingUp size={24} />
+          <div style={{
+            width: '46px', height: '46px', borderRadius: '14px', flexShrink: 0,
+            background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <TrendingUp size={22} color="#6ee7b7" />
           </div>
-          <div className="stat-info">
-            <span className="stat-value">{avgProgress}%</span>
-            <span className="stat-label">Sort by Progress</span>
+          <div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#e2e8f0', lineHeight: 1 }}>{avgProgress}%</div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Avg Progress</div>
           </div>
         </button>
 
-        {/* Daily Streak & XP Claim */}
+        {/* Streak */}
         <button
-          type="button"
-          className={`stat-card clickable ${streakCheckedIn ? 'active' : ''}`}
           onClick={handleStreakCheckIn}
-          title="Claim daily learning streak reward"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '14px',
+            padding: '18px 20px', borderRadius: '16px', cursor: 'pointer',
+            background: streakCheckedIn ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.02)',
+            border: streakCheckedIn ? '1px solid rgba(245,158,11,0.35)' : '1px solid rgba(255,255,255,0.06)',
+            transition: 'all 0.25s ease', textAlign: 'left',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(245,158,11,0.15)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
         >
-          <div className="stat-icon-box" style={{ background: 'rgba(245, 158, 11, 0.18)', color: '#fcd34d' }}>
-            <Flame size={24} />
+          <div style={{
+            width: '46px', height: '46px', borderRadius: '14px', flexShrink: 0,
+            background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Flame size={22} color="#fbbf24" />
           </div>
-          <div className="stat-info">
-            <span className="stat-value" style={{ fontSize: '1.2rem', color: '#fcd34d' }}>
+          <div>
+            <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#fbbf24', lineHeight: 1 }}>
               {streakCheckedIn ? '3-Day 🔥' : 'Claim Streak'}
-            </span>
-            <span className="stat-label">{userXp} XP Points</span>
+            </div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{userXp} XP Points</div>
           </div>
         </button>
 
-        {/* Interactive Weekly Goal Tracker & Time Analytics Launcher */}
-        <div 
-          className="stat-card clickable" 
-          onClick={() => setShowTimeAnalyticsModal(true)} 
-          title="Click to view live time spending analytics & live pie chart"
-          style={{ borderColor: 'rgba(168, 85, 247, 0.4)' }}
+        {/* Weekly Goal */}
+        <button
+          onClick={() => setShowTimeAnalyticsModal(true)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '14px',
+            padding: '18px 20px', borderRadius: '16px', cursor: 'pointer',
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(168,85,247,0.2)',
+            transition: 'all 0.25s ease', textAlign: 'left',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(168,85,247,0.15)'; e.currentTarget.style.borderColor = 'rgba(168,85,247,0.4)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'rgba(168,85,247,0.2)'; }}
         >
-          <div className="stat-icon-box" style={{ background: 'rgba(168, 85, 247, 0.18)', color: '#c084fc' }}>
-            <PieChart size={24} />
+          <div style={{
+            width: '46px', height: '46px', borderRadius: '14px', flexShrink: 0,
+            background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <PieChart size={22} color="#c084fc" />
           </div>
-          <div className="stat-info" style={{ flex: 1 }}>
+          <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span className="stat-value" style={{ fontSize: '1.1rem' }}>{loggedHours}h / {targetHours}h</span>
-              <button
-                type="button"
+              <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#e2e8f0', lineHeight: 1 }}>{loggedHours}h / {targetHours}h</span>
+              <span
                 onClick={(e) => { e.stopPropagation(); handleLogStudyTime(); }}
-                className="btn btn-secondary btn-sm"
-                style={{ padding: '2px 6px', fontSize: '0.68rem', zIndex: 2 }}
-                title="Log 30 mins learning session"
+                style={{
+                  padding: '2px 8px', borderRadius: '6px', fontSize: '0.68rem', fontWeight: 700,
+                  background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)',
+                  color: '#c084fc', cursor: 'pointer',
+                }}
               >
                 +30m
-              </button>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
-              <span className="stat-label">Weekly Target Goal</span>
-              <span style={{ fontSize: '0.65rem', background: 'rgba(168, 85, 247, 0.2)', color: '#c084fc', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(168, 85, 247, 0.4)', gap: '3px', display: 'inline-flex', alignItems: 'center', fontWeight: 600 }}>
-                <PieChart size={10} /> Live Chart ↗
               </span>
             </div>
-            <div className="progress-bar-container" style={{ height: '4px', marginTop: '4px' }}>
-              <div className="progress-bar-fill" style={{ width: `${Math.min(100, (loggedHours / targetHours) * 100)}%`, background: 'var(--neon-violet)' }}></div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Weekly Goal</div>
+            <div style={{ height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.06)', marginTop: '6px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: '2px', width: `${Math.min(100, (loggedHours / targetHours) * 100)}%`, background: 'linear-gradient(90deg, #a855f7, #6366f1)', transition: 'width 0.5s ease' }} />
             </div>
           </div>
-        </div>
+        </button>
       </div>
+
+      {/* Inline keyframes for dashboard hero */}
+      <style>{`
+        @keyframes dashFloat1 {
+          0%, 100% { transform: translate(0, 0); }
+          50% { transform: translate(-30px, 20px); }
+        }
+        @keyframes dashFloat2 {
+          0%, 100% { transform: translate(0, 0); }
+          50% { transform: translate(25px, -15px); }
+        }
+        @keyframes dashFloat3 {
+          0%, 100% { transform: translate(-50%, -50%) scale(1); }
+          50% { transform: translate(-50%, -50%) scale(1.2); }
+        }
+        @keyframes dashGradientShift {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        @keyframes dashFadeSlideIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes dashPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
 
       {/* 4. SEARCH, FILTER & LAYOUT CONTROL TOOLBAR */}
       <div className="search-filter-container">
@@ -1044,184 +1234,212 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
             const badgeClass = getCategoryBadgeClass(course.category);
             const skillTags = getSkillTags(course.category);
 
+            const categoryColors = {
+              'GenAI': { accent: '#a855f7', bg: 'rgba(168,85,247,0.08)', border: 'rgba(168,85,247,0.2)' },
+              'AI & ML': { accent: '#6366f1', bg: 'rgba(99,102,241,0.08)', border: 'rgba(99,102,241,0.2)' },
+              'Web Dev': { accent: '#22c55e', bg: 'rgba(34,197,94,0.08)', border: 'rgba(34,197,94,0.2)' },
+              'DevOps & Cloud': { accent: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)' },
+              'Data Science': { accent: '#06b6d4', bg: 'rgba(6,182,212,0.08)', border: 'rgba(6,182,212,0.2)' },
+              'Security': { accent: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)' },
+            };
+            const colors = categoryColors[course.category] || categoryColors['AI & ML'];
+
             return (
-              <div 
-                key={courseId} 
-                className="course-card glass-card glass-card-hover" 
-                style={{ borderTop: `3px solid ${course.category === 'GenAI' ? '#c084fc' : course.category === 'Web Dev' ? '#6ee7b7' : course.category === 'DevOps & Cloud' ? '#fcd34d' : 'var(--primary)'}` }}
+              <div
+                key={courseId}
+                style={{
+                  background: 'rgba(255,255,255,0.02)',
+                  border: `1px solid rgba(255,255,255,0.06)`,
+                  borderRadius: '18px',
+                  overflow: 'hidden',
+                  display: 'flex', flexDirection: 'column',
+                  transition: 'all 0.3s ease',
+                  cursor: 'default',
+                  position: 'relative',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = `0 20px 50px ${colors.accent}18`; e.currentTarget.style.borderColor = `${colors.accent}40`; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
               >
-                <div className="course-card-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                {/* Top accent gradient bar */}
+                <div style={{ height: '3px', background: `linear-gradient(90deg, ${colors.accent}, ${colors.accent}60)` }} />
+
+                <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+                  {/* Header: badges + rating + bookmark */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                      <span className={`badge ${badgeClass}`}>
-                        {course.category || 'AI & ML'}
+                      <span className={`badge ${badgeClass}`} style={{ fontSize: '0.7rem' }}>{course.category}</span>
+                      <span style={{
+                        background: course.platform === 'Coursera' ? 'rgba(59,130,246,0.12)' : course.platform === 'edX' ? 'rgba(239,68,68,0.12)' : 'rgba(168,85,247,0.12)',
+                        color: course.platform === 'Coursera' ? '#60a5fa' : course.platform === 'edX' ? '#fca5a5' : '#c084fc',
+                        border: `1px solid ${course.platform === 'Coursera' ? 'rgba(59,130,246,0.25)' : course.platform === 'edX' ? 'rgba(239,68,68,0.25)' : 'rgba(168,85,247,0.25)'}`,
+                        borderRadius: '6px', padding: '2px 8px', fontSize: '0.68rem', fontWeight: 700,
+                      }}>
+                        {course.platform}
                       </span>
-                      {course.platform === 'Coursera' ? (
-                        <span style={{ background: 'rgba(0, 86, 210, 0.18)', color: '#60a5fa', border: '1px solid rgba(0, 86, 210, 0.45)', borderRadius: '6px', padding: '2px 8px', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Globe size={11} /> Coursera
-                        </span>
-                      ) : course.platform === 'edX' ? (
-                        <span style={{ background: 'rgba(185, 28, 28, 0.18)', color: '#fca5a5', border: '1px solid rgba(185, 28, 28, 0.45)', borderRadius: '6px', padding: '2px 8px', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Sparkles size={11} /> edX
-                        </span>
-                      ) : (
-                        <span style={{ background: 'rgba(164, 53, 240, 0.18)', color: '#d1a8ff', border: '1px solid rgba(164, 53, 240, 0.45)', borderRadius: '6px', padding: '2px 8px', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <BookOpen size={11} /> Udemy
-                        </span>
-                      )}
-                      {course.provider && (
-                        <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', background: 'rgba(255, 255, 255, 0.05)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
-                          {course.provider}
+                      {isEnrolled && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: '6px', padding: '2px 8px' }}>
+                          <CheckCircle2 size={10} /> Enrolled
                         </span>
                       )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       {course.rating && (
-                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fcd34d', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                          <Star size={12} fill="#fcd34d" /> {course.rating}
-                        </span>
-                      )}
-                      {isEnrolled && (
-                        <span className="badge badge-success" style={{ gap: '3px' }}>
-                          <CheckCircle2 size={11} /> Enrolled
+                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <Star size={12} fill="#fbbf24" color="#fbbf24" /> {course.rating.replace(' ⭐', '')}
                         </span>
                       )}
                       <button
-                        type="button"
-                        className={`bookmark-btn ${isFav ? 'bookmarked' : ''}`}
                         onClick={(e) => { e.preventDefault(); toggleFavorite(courseId); }}
-                        title={isFav ? 'Remove Bookmark' : 'Bookmark Course'}
+                        style={{
+                          width: '30px', height: '30px', borderRadius: '8px', display: 'flex',
+                          alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                          background: isFav ? 'rgba(251,191,36,0.12)' : 'rgba(255,255,255,0.03)',
+                          border: isFav ? '1px solid rgba(251,191,36,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                          color: isFav ? '#fbbf24' : '#475569', transition: 'all 0.15s ease',
+                        }}
                       >
-                        <Star size={14} fill={isFav ? '#fcd34d' : 'none'} />
+                        <Star size={13} fill={isFav ? '#fbbf24' : 'none'} />
                       </button>
                     </div>
                   </div>
 
-                  <h3 className="course-title" style={{ fontSize: '1.25rem' }}>{course.title || course.name}</h3>
-                  <p className="course-description">{course.description}</p>
+                  {/* Title */}
+                  <h3 style={{ fontSize: '1.12rem', fontWeight: 800, color: '#e2e8f0', margin: 0, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {course.title}
+                  </h3>
+
+                  {/* Description */}
+                  <p style={{ fontSize: '0.82rem', color: '#64748b', margin: 0, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {course.description}
+                  </p>
 
                   {/* Skill tags */}
-                  <div className="skill-tags-row">
-                    {skillTags.map((tag) => (
-                      <span key={tag} className="skill-tag-pill">{tag}</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                    {skillTags.slice(0, 4).map(tag => (
+                      <span key={tag} style={{
+                        fontSize: '0.68rem', fontWeight: 600, padding: '3px 9px', borderRadius: '6px',
+                        background: `${colors.accent}10`, border: `1px solid ${colors.accent}20`,
+                        color: `${colors.accent}cc`,
+                      }}>
+                        {tag}
+                      </span>
                     ))}
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '4px', flexWrap: 'wrap', gap: '6px' }}>
-                    {course.instructor && (
-                      <div className="course-meta">
-                        <User size={13} />
-                        <span>{course.instructor}</span>
-                      </div>
-                    )}
-                    {course.students && (
-                      <div className="course-meta">
-                        <Users size={13} color="#93c5fd" />
-                        <span style={{ color: '#93c5fd', fontWeight: 600 }}>{course.students}</span>
-                      </div>
-                    )}
-                    {course.duration && (
-                      <div className="course-meta">
-                        <Clock size={13} />
-                        <span>{course.duration}</span>
-                      </div>
-                    )}
+                  {/* Metadata row */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', fontSize: '0.75rem', color: '#475569', marginTop: 'auto' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <User size={12} /> <span style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{course.instructor}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {course.students && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#818cf8' }}>
+                          <Users size={11} /> {course.students}
+                        </span>
+                      )}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <Clock size={11} /> {course.duration}
+                      </span>
+                    </div>
                   </div>
 
+                  {/* Progress bar for enrolled */}
                   {isEnrolled && (
-                    <div className="progress-section" style={{ marginTop: '4px' }}>
-                      <div className="progress-label">
-                        <span>Completion Progress</span>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', marginBottom: '4px' }}>
+                        <span style={{ color: '#64748b' }}>Progress</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <strong>{progress}%</strong>
+                          <strong style={{ color: '#4ade80' }}>{progress}%</strong>
                           {progress < 100 && (
                             <button
-                              type="button"
                               onClick={(e) => { e.preventDefault(); handleQuickProgressBump(courseId, progress); }}
                               disabled={actionLoadingId === courseId}
-                              className="btn btn-secondary btn-sm"
-                              style={{ padding: '2px 6px', fontSize: '0.7rem' }}
-                              title="Add 10% progress"
+                              style={{
+                                padding: '1px 6px', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 700,
+                                background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)',
+                                color: '#4ade80', cursor: 'pointer',
+                              }}
                             >
                               +10%
                             </button>
                           )}
                         </div>
                       </div>
-                      <div className="progress-bar-container">
-                        <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+                      <div style={{ height: '5px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', borderRadius: '3px', width: `${progress}%`, background: `linear-gradient(90deg, ${colors.accent}, #22c55e)`, transition: 'width 0.4s ease' }} />
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div className="course-card-footer" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                {/* Footer actions */}
+                <div style={{
+                  padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.04)',
+                  display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(0,0,0,0.15)',
+                }}>
                   <button
-                    type="button"
                     onClick={() => { setPreviewCourse(course); setPreviewTab('overview'); }}
-                    className="btn btn-secondary btn-sm"
-                    style={{ padding: '8px 10px', flexShrink: 0 }}
-                    title="Quick preview course syllabus"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      width: '36px', height: '36px', borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                      color: '#94a3b8', cursor: 'pointer', transition: 'all 0.15s ease', flexShrink: 0,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = `${colors.accent}15`; e.currentTarget.style.color = colors.accent; e.currentTarget.style.borderColor = `${colors.accent}40`; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                    title="Preview course details"
                   >
                     <Eye size={15} />
                   </button>
-                  
+
                   {isEnrolled && (
                     <button
-                      type="button"
                       onClick={(e) => { e.preventDefault(); handleUnenrollCourse(courseId); }}
-                      className="btn btn-secondary btn-sm"
-                      style={{ padding: '8px 10px', flexShrink: 0, color: '#fca5a5', borderColor: 'rgba(239, 68, 68, 0.4)' }}
-                      title="Unenroll / Remove Course"
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: '36px', height: '36px', borderRadius: '10px',
+                        background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)',
+                        color: '#fca5a5', cursor: 'pointer', transition: 'all 0.15s ease', flexShrink: 0,
+                      }}
+                      title="Unenroll"
                     >
-                      <Trash2 size={15} />
+                      <Trash2 size={14} />
                     </button>
                   )}
-                  
+
                   {(course.courseUrl || course.udemyUrl) && (
-                    <a 
-                      href={course.courseUrl || course.udemyUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="btn btn-secondary btn-sm" 
-                      title={`View real-time course on ${course.platform || 'Platform'}`}
+                    <a
+                      href={course.courseUrl || course.udemyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       style={{
-                        padding: '8px 10px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        textDecoration: 'none',
-                        flexShrink: 0,
-                        color: course.platform === 'Coursera' ? '#60a5fa' : course.platform === 'edX' ? '#fca5a5' : '#d1a8ff',
-                        borderColor: course.platform === 'Coursera' ? 'rgba(0, 86, 210, 0.45)' : course.platform === 'edX' ? 'rgba(185, 28, 28, 0.45)' : 'rgba(164, 53, 240, 0.45)'
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: '36px', height: '36px', borderRadius: '10px',
+                        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                        color: course.platform === 'Coursera' ? '#60a5fa' : course.platform === 'edX' ? '#fca5a5' : '#c084fc',
+                        textDecoration: 'none', transition: 'all 0.15s ease', flexShrink: 0,
                       }}
+                      title={`View on ${course.platform}`}
                     >
                       <ExternalLink size={14} />
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>{course.platform || 'Link'}</span>
                     </a>
                   )}
 
-                  <Link 
-                    to={`/courses/${courseId}`} 
-                    className="btn btn-primary btn-sm" 
-                    style={{ 
-                      flex: 1, 
-                      minWidth: 0, 
-                      display: 'inline-flex', 
-                      alignItems: 'center', 
-                      justify: 'center', 
-                      gap: '6px', 
-                      padding: '8px 12px', 
-                      whiteSpace: 'nowrap', 
-                      overflow: 'hidden', 
-                      fontSize: '0.82rem',
-                      fontWeight: 700
+                  <Link
+                    to={`/courses/${courseId}`}
+                    style={{
+                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                      padding: '9px 16px', borderRadius: '10px', textDecoration: 'none',
+                      background: `linear-gradient(135deg, ${colors.accent}, ${colors.accent}cc)`,
+                      color: '#fff', fontSize: '0.82rem', fontWeight: 700,
+                      transition: 'all 0.2s ease',
+                      boxShadow: `0 4px 15px ${colors.accent}30`,
                     }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 20px ${colors.accent}40`; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 15px ${colors.accent}30`; }}
                   >
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {isEnrolled ? 'Continue' : 'View & Enroll'}
-                    </span>
-                    <ArrowRight size={14} style={{ flexShrink: 0 }} />
+                    <span>{isEnrolled ? 'Continue' : 'View & Enroll'}</span>
+                    <ArrowRight size={14} />
                   </Link>
                 </div>
               </div>
@@ -1335,147 +1553,328 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
         </div>
       )}
 
-      {/* 12. INTERACTIVE COURSE PREVIEW MODAL */}
+      {/* 12. COURSE DETAILS MODAL */}
       {previewCourse && (
-        <div className="modal-overlay" onClick={() => setPreviewCourse(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button
-              className="modal-close-btn"
-              onClick={() => setPreviewCourse(null)}
-              aria-label="Close modal"
-            >
-              <X size={18} />
-            </button>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <span className={`badge ${getCategoryBadgeClass(previewCourse.category)}`} style={{ width: 'fit-content' }}>
-                {previewCourse.category || 'AI Course'}
-              </span>
-              <h2 style={{ fontSize: '1.6rem', fontWeight: 800 }}>{previewCourse.title}</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>{previewCourse.description}</p>
-            </div>
-
-            {/* Modal Tabs */}
-            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 999999,
+            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '16px', animation: 'dashFadeSlideIn 0.2s ease',
+          }}
+          onClick={() => setPreviewCourse(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '720px', width: '100%', maxHeight: '85vh', overflow: 'auto',
+              background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+              border: '1px solid rgba(99,102,241,0.2)', borderRadius: '24px',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.7)',
+              animation: 'profileSlideUp 0.3s ease',
+            }}
+          >
+            {/* Modal header with gradient banner */}
+            <div style={{
+              padding: '28px 32px 20px',
+              background: `linear-gradient(135deg, ${(
+                previewCourse.category === 'GenAI' ? 'rgba(168,85,247,0.15)' :
+                previewCourse.category === 'Web Dev' ? 'rgba(34,197,94,0.15)' :
+                previewCourse.category === 'DevOps & Cloud' ? 'rgba(245,158,11,0.15)' :
+                previewCourse.category === 'Security' ? 'rgba(239,68,68,0.15)' :
+                previewCourse.category === 'Data Science' ? 'rgba(6,182,212,0.15)' : 'rgba(99,102,241,0.15)'
+              )} 0%, transparent 100%)`,
+              borderBottom: '1px solid rgba(255,255,255,0.05)',
+              position: 'relative',
+            }}>
               <button
-                className={`btn btn-sm ${previewTab === 'overview' ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setPreviewTab('overview')}
+                onClick={() => setPreviewCourse(null)}
+                style={{
+                  position: 'absolute', top: '16px', right: '16px',
+                  width: '34px', height: '34px', borderRadius: '10px',
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                  color: '#94a3b8', cursor: 'pointer', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                }}
               >
-                Overview
+                <X size={16} />
               </button>
-              <button
-                className={`btn btn-sm ${previewTab === 'syllabus' ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setPreviewTab('syllabus')}
-              >
-                Syllabus Modules
-              </button>
-              <button
-                className={`btn btn-sm ${previewTab === 'skills' ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setPreviewTab('skills')}
-              >
-                AI Skills Gained
-              </button>
-            </div>
 
-            {previewTab === 'overview' && (
-              <div className="course-info-grid">
-                <div className="info-item">
-                  <span className="info-label">Instructor</span>
-                  <span className="info-value"><User size={14} color="var(--primary)" /> {previewCourse.instructor || 'N/A'}</span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">Duration</span>
-                  <span className="info-value"><Clock size={14} color="var(--accent)" /> {previewCourse.duration || 'Self-paced'}</span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">Reference Platform</span>
-                  <span className="info-value" style={{ color: previewCourse.platform === 'Coursera' ? '#60a5fa' : '#d1a8ff', fontWeight: 700 }}>
-                    {previewCourse.platform === 'Coursera' ? <Globe size={14} color="#60a5fa" /> : <BookOpen size={14} color="#d1a8ff" />}
-                    {' '}{previewCourse.platform || 'Udemy'}
-                  </span>
-                </div>
-                {previewCourse.students && (
-                  <div className="info-item">
-                    <span className="info-label">Enrolled Students</span>
-                    <span className="info-value" style={{ color: '#93c5fd' }}><Users size={14} color="#93c5fd" /> {previewCourse.students}</span>
-                  </div>
-                )}
-                <div className="info-item">
-                  <span className="info-label">Prerequisites</span>
-                  <span className="info-value">{previewCourse.prerequisites || 'Basic Programming'}</span>
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <span className={`badge ${getCategoryBadgeClass(previewCourse.category)}`}>{previewCourse.category}</span>
+                <span style={{
+                  fontSize: '0.72rem', fontWeight: 700, padding: '3px 10px', borderRadius: '6px',
+                  background: previewCourse.platform === 'Coursera' ? 'rgba(59,130,246,0.12)' : previewCourse.platform === 'edX' ? 'rgba(239,68,68,0.12)' : 'rgba(168,85,247,0.12)',
+                  color: previewCourse.platform === 'Coursera' ? '#60a5fa' : previewCourse.platform === 'edX' ? '#fca5a5' : '#c084fc',
+                  border: `1px solid ${previewCourse.platform === 'Coursera' ? 'rgba(59,130,246,0.25)' : previewCourse.platform === 'edX' ? 'rgba(239,68,68,0.25)' : 'rgba(168,85,247,0.25)'}`,
+                }}>
+                  {previewCourse.platform}
+                </span>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', padding: '3px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  {previewCourse.level}
+                </span>
               </div>
-            )}
 
-            {previewTab === 'syllabus' && previewCourse.modules && (
-              <div className="modal-syllabus-list">
-                {previewCourse.modules.map((mod, idx) => (
-                  <div key={idx} className="syllabus-item">
-                    <CheckCircle2 size={16} color="var(--success)" />
-                    <span>{mod}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 900, color: '#e2e8f0', margin: '0 0 8px 0', lineHeight: 1.25, paddingRight: '40px' }}>
+                {previewCourse.title}
+              </h2>
+              <p style={{ fontSize: '0.88rem', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
+                {previewCourse.description}
+              </p>
 
-            {previewTab === 'skills' && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', padding: '8px 0' }}>
-                {getSkillTags(previewCourse.category).map((s) => (
-                  <span key={s} className="badge badge-info" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
-                    <Zap size={13} /> {s}
+              {/* Quick stats row */}
+              <div style={{ display: 'flex', gap: '16px', marginTop: '16px', flexWrap: 'wrap' }}>
+                {[
+                  { icon: User, label: previewCourse.instructor, color: '#a5b4fc' },
+                  { icon: Clock, label: previewCourse.duration, color: '#6ee7b7' },
+                  { icon: Star, label: previewCourse.rating?.replace(' ⭐', '') + ' rating', color: '#fbbf24' },
+                  { icon: Users, label: previewCourse.students + ' students', color: '#818cf8' },
+                ].filter(s => s.label).map((stat, i) => (
+                  <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem', color: stat.color, fontWeight: 600 }}>
+                    <stat.icon size={13} /> {stat.label}
                   </span>
                 ))}
               </div>
-            )}
+            </div>
 
-            <div style={{ display: 'flex', gap: '12px', marginTop: '12px', flexWrap: 'wrap' }}>
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: '4px', padding: '16px 32px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              {[
+                { id: 'overview', label: 'Overview' },
+                { id: 'syllabus', label: 'Curriculum' },
+                { id: 'skills', label: 'What You\'ll Learn' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setPreviewTab(tab.id)}
+                  style={{
+                    padding: '10px 18px', borderRadius: '10px 10px 0 0',
+                    background: previewTab === tab.id ? 'rgba(99,102,241,0.1)' : 'transparent',
+                    border: 'none', borderBottom: previewTab === tab.id ? '2px solid #6366f1' : '2px solid transparent',
+                    color: previewTab === tab.id ? '#a5b4fc' : '#64748b',
+                    fontSize: '0.82rem', fontWeight: previewTab === tab.id ? 700 : 600,
+                    cursor: 'pointer', transition: 'all 0.15s ease',
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab content */}
+            <div style={{ padding: '20px 32px 28px' }}>
+              {previewTab === 'overview' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', animation: 'dashFadeSlideIn 0.3s ease' }}>
+                  {/* Full description */}
+                  {previewCourse.fullDescription && (
+                    <div>
+                      <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <BookOpen size={15} color="#6366f1" /> About This Course
+                      </h4>
+                      <p style={{ fontSize: '0.85rem', color: '#94a3b8', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-line' }}>
+                        {previewCourse.fullDescription}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Info grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                    {[
+                      { label: 'Provider', value: previewCourse.provider, icon: Globe },
+                      { label: 'Prerequisites', value: previewCourse.prerequisites, icon: Award },
+                      { label: 'Reviews', value: previewCourse.ratingCount, icon: MessageSquare },
+                    ].filter(i => i.value).map((item, i) => (
+                      <div key={i} style={{
+                        padding: '14px 16px', borderRadius: '12px',
+                        background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                      }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <item.icon size={12} color="#6366f1" /> {item.label}
+                        </div>
+                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#e2e8f0' }}>{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Target audience */}
+                  {previewCourse.targetAudience && previewCourse.targetAudience.length > 0 && (
+                    <div>
+                      <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Target size={15} color="#06b6d4" /> Who This Is For
+                      </h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {previewCourse.targetAudience.map((item, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: '#94a3b8' }}>
+                            <ChevronRight size={13} color="#22d3ee" style={{ flexShrink: 0 }} /> {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Instructor bio */}
+                  {previewCourse.instructorBio && (
+                    <div style={{
+                      padding: '16px 18px', borderRadius: '14px',
+                      background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.15)',
+                    }}>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#a5b4fc', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <User size={13} /> About the Instructor
+                      </div>
+                      <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: 0, lineHeight: 1.6 }}>
+                        {previewCourse.instructorBio}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {previewTab === 'syllabus' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', animation: 'dashFadeSlideIn 0.3s ease' }}>
+                  <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <GraduationCap size={15} color="#6366f1" /> Course Curriculum ({previewCourse.modules?.length || 0} Modules)
+                  </h4>
+                  {previewCourse.modules && previewCourse.modules.map((mod, idx) => (
+                    <div key={idx} style={{
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                      padding: '14px 16px', borderRadius: '12px',
+                      background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.04)',
+                      transition: 'all 0.15s ease',
+                    }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.06)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.15)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}
+                    >
+                      <div style={{
+                        width: '32px', height: '32px', borderRadius: '8px', flexShrink: 0,
+                        background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '0.75rem', fontWeight: 800, color: '#a5b4fc',
+                      }}>
+                        {idx + 1}
+                      </div>
+                      <span style={{ fontSize: '0.85rem', color: '#cbd5e1', fontWeight: 600 }}>{mod}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {previewTab === 'skills' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', animation: 'dashFadeSlideIn 0.3s ease' }}>
+                  {/* What You'll Learn */}
+                  {previewCourse.whatYouWillLearn && previewCourse.whatYouWillLearn.length > 0 && (
+                    <div>
+                      <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Zap size={15} color="#f59e0b" /> What You'll Learn
+                      </h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '8px' }}>
+                        {previewCourse.whatYouWillLearn.map((item, i) => (
+                          <div key={i} style={{
+                            display: 'flex', alignItems: 'flex-start', gap: '8px',
+                            padding: '10px 14px', borderRadius: '10px',
+                            background: 'rgba(34,197,94,0.04)', border: '1px solid rgba(34,197,94,0.1)',
+                            fontSize: '0.82rem', color: '#94a3b8', lineHeight: 1.4,
+                          }}>
+                            <CheckCircle2 size={14} color="#22c55e" style={{ flexShrink: 0, marginTop: '2px' }} />
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Requirements */}
+                  {previewCourse.requirements && previewCourse.requirements.length > 0 && (
+                    <div>
+                      <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Award size={15} color="#a855f7" /> Requirements
+                      </h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {previewCourse.requirements.map((item, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: '#94a3b8' }}>
+                            <ChevronRight size={13} color="#a855f7" style={{ flexShrink: 0 }} /> {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Skill Tags */}
+                  <div>
+                    <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 10px 0' }}>
+                      Core Skill Tags
+                    </h4>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {getSkillTags(previewCourse.category).map((s) => (
+                        <span key={s} style={{
+                          display: 'flex', alignItems: 'center', gap: '5px',
+                          padding: '7px 14px', borderRadius: '10px', fontSize: '0.82rem', fontWeight: 700,
+                          background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)',
+                          color: '#a5b4fc',
+                        }}>
+                          <Zap size={12} /> {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal footer actions */}
+            <div style={{
+              padding: '16px 32px 24px', borderTop: '1px solid rgba(255,255,255,0.05)',
+              display: 'flex', gap: '12px', flexWrap: 'wrap',
+            }}>
               {(previewCourse.courseUrl || previewCourse.udemyUrl) && (
                 <a
                   href={previewCourse.courseUrl || previewCourse.udemyUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn btn-secondary btn-lg"
                   style={{
-                    textDecoration: 'none',
-                    color: previewCourse.platform === 'Coursera' ? '#60a5fa' : '#d1a8ff',
-                    borderColor: previewCourse.platform === 'Coursera' ? 'rgba(0, 86, 210, 0.5)' : 'rgba(164, 53, 240, 0.5)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '11px 20px', borderRadius: '12px', textDecoration: 'none',
+                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+                    color: previewCourse.platform === 'Coursera' ? '#60a5fa' : previewCourse.platform === 'edX' ? '#fca5a5' : '#c084fc',
+                    fontSize: '0.85rem', fontWeight: 700, transition: 'all 0.15s ease',
                   }}
                 >
-                  <ExternalLink size={18} />
-                  <span>View on {previewCourse.platform || 'Platform'}</span>
+                  <ExternalLink size={15} /> View on {previewCourse.platform}
                 </a>
               )}
 
               {userProgressMap[previewCourse.id || previewCourse._id] !== undefined ? (
                 <Link
                   to={`/courses/${previewCourse.id || previewCourse._id}`}
-                  className="btn btn-primary btn-block btn-lg"
                   onClick={() => setPreviewCourse(null)}
-                  style={{ flex: 1 }}
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    padding: '11px 24px', borderRadius: '12px', textDecoration: 'none',
+                    background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                    color: '#fff', fontSize: '0.88rem', fontWeight: 700,
+                    boxShadow: '0 4px 20px rgba(99,102,241,0.3)',
+                    transition: 'all 0.2s ease',
+                  }}
                 >
-                  Go to Course Workspace
+                  <PlayCircle size={16} /> Go to Course Workspace
                 </Link>
               ) : (
                 <button
-                  type="button"
                   onClick={() => handleModalEnroll(previewCourse.id || previewCourse._id)}
                   disabled={actionLoadingId === (previewCourse.id || previewCourse._id)}
-                  className="btn btn-primary btn-block btn-lg"
-                  style={{ flex: 1 }}
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    padding: '11px 24px', borderRadius: '12px', border: 'none',
+                    background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                    color: '#fff', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer',
+                    boxShadow: '0 4px 20px rgba(99,102,241,0.3)',
+                    transition: 'all 0.2s ease',
+                  }}
                 >
                   {actionLoadingId === (previewCourse.id || previewCourse._id) ? (
-                    <>
-                      <span className="spinner"></span>
-                      <span>Enrolling...</span>
-                    </>
+                    <><span className="spinner"></span> Enrolling...</>
                   ) : (
-                    <>
-                      <PlusCircle size={18} />
-                      <span>Enroll in Course</span>
-                    </>
+                    <><PlusCircle size={16} /> Enroll in This Course</>
                   )}
                 </button>
               )}

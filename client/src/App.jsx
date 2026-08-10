@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/ToastContainer';
 import Navbar from './components/Navbar';
@@ -14,6 +14,11 @@ import ProfilePage from './pages/ProfilePage';
 
 import './index.css';
 
+const RootRedirect = () => {
+  const { isAuthenticated } = useAuth();
+  return <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -24,6 +29,9 @@ function App() {
             <ToastContainer />
             <main className="main-content">
               <Routes>
+                {/* Root Route */}
+                <Route path="/" element={<RootRedirect />} />
+
                 {/* Public Routes */}
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
@@ -36,7 +44,7 @@ function App() {
                 </Route>
 
                 {/* Fallback Route */}
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                <Route path="*" element={<RootRedirect />} />
               </Routes>
             </main>
           </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Avatar from './Avatar';
@@ -19,6 +19,34 @@ const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const [profileData, setProfileData] = useState(() => {
+    try {
+      const saved = localStorage.getItem('intellilearn_profile_data');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      try {
+        const saved = localStorage.getItem('intellilearn_profile_data');
+        if (saved) setProfileData(JSON.parse(saved));
+      } catch (e) {
+        console.warn('Could not parse profile data', e);
+      }
+    };
+    window.addEventListener('profile_updated', handleProfileUpdate);
+    window.addEventListener('storage', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('profile_updated', handleProfileUpdate);
+      window.removeEventListener('storage', handleProfileUpdate);
+    };
+  }, []);
+
+  const displayUsername = profileData?.username || user?.username || user?.email || 'User';
 
   const handleLogout = () => {
     logout();
@@ -84,8 +112,8 @@ const Navbar = () => {
               </NavLink>
 
               <div className="user-badge-container">
-                <Avatar name={user?.username || user?.email || 'User'} size={28} />
-                <span className="user-name-text">{user?.username || user?.email}</span>
+                <Avatar name={displayUsername} size={28} />
+                <span className="user-name-text">{displayUsername}</span>
               </div>
 
               <button onClick={handleLogout} className="btn btn-secondary btn-sm" title="Sign out">

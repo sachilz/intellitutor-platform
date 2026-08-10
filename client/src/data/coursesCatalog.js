@@ -745,6 +745,274 @@ AWS Experts Stephane Maarek and Frank Kane guide you through all four exam domai
       'Course 3: Animation and CGI Motion',
       'Course 4: Robotics'
     ]
+  },
+
+  // --- ADDITIONAL REAL-TIME COURSES ---
+  {
+    id: 'c_google_1',
+    title: 'Google AI Essentials',
+    description: 'Learn AI fundamentals from Google experts. Discover how to use AI tools effectively, write prompts, and apply AI responsibly in your daily work.',
+    category: 'GenAI',
+    instructor: 'Google AI Team',
+    provider: 'Google',
+    duration: '10 Hours',
+    rating: '4.8 ⭐',
+    ratingCount: '25,000+',
+    students: '450,000+',
+    platform: 'Coursera',
+    courseUrl: 'https://www.coursera.org/learn/google-ai-essentials',
+    udemyUrl: 'https://www.coursera.org/learn/google-ai-essentials',
+    level: 'Beginner',
+    prerequisites: 'None',
+    whatYouWillLearn: [
+      'Understand AI and Machine Learning fundamentals from Google experts',
+      'Write effective prompts for generative AI tools',
+      'Apply AI responsibly with ethical considerations',
+      'Use AI to boost productivity in everyday tasks',
+      'Evaluate AI output for accuracy and bias',
+      'Implement AI-powered workflows in professional settings'
+    ],
+    fullDescription: `Google AI Essentials is a self-paced course designed by Google AI experts. Learn the fundamentals of AI, including how generative AI works, how to write effective prompts, and how to use AI tools responsibly in your daily work.`,
+    targetAudience: [
+      'Professionals wanting to leverage AI in their career',
+      'Beginners seeking foundational AI knowledge from Google',
+      'Team leads exploring AI adoption strategies'
+    ],
+    requirements: [
+      'No prior AI or technical experience required',
+      'Basic computer literacy'
+    ],
+    instructorBio: 'Google AI Team consists of leading researchers and engineers at Google DeepMind and Google Cloud.',
+    modules: [
+      'Module 1: Introduction to AI & Machine Learning',
+      'Module 2: Generative AI Fundamentals',
+      'Module 3: Effective Prompt Engineering',
+      'Module 4: Responsible AI & Ethics',
+      'Module 5: AI in the Workplace'
+    ]
+  },
+  {
+    id: 'c_meta_1',
+    title: 'Meta Front-End Developer Professional Certificate',
+    description: 'Launch your career as a front-end developer. Build responsive websites using HTML, CSS, JavaScript, React, and design systems with Meta engineers.',
+    category: 'Web Dev',
+    instructor: 'Meta Engineering Team',
+    provider: 'Meta',
+    duration: '7 Months (6 hrs/wk)',
+    rating: '4.7 ⭐',
+    ratingCount: '45,000+',
+    students: '380,000+',
+    platform: 'Coursera',
+    courseUrl: 'https://www.coursera.org/professional-certificates/meta-front-end-developer',
+    udemyUrl: 'https://www.coursera.org/professional-certificates/meta-front-end-developer',
+    level: 'Beginner',
+    prerequisites: 'None',
+    whatYouWillLearn: [
+      'Create responsive websites using HTML5, CSS3, and JavaScript',
+      'Build interactive UIs with React.js and component architecture',
+      'Use Figma to create wireframes and design prototypes',
+      'Implement version control with Git and GitHub',
+      'Apply UX/UI design principles for accessible web apps',
+      'Prepare for technical interviews at top tech companies'
+    ],
+    fullDescription: `Developed by the software engineering team at Meta, this Professional Certificate prepares you for an entry-level career as a front-end developer. Learn to build websites and applications with HTML, CSS, JavaScript, and React.`,
+    targetAudience: [
+      'Aspiring front-end developers with no experience',
+      'Career changers looking to enter web development',
+      'Designers wanting to learn to code'
+    ],
+    requirements: [
+      'No prior programming experience needed',
+      'A computer with internet access'
+    ],
+    instructorBio: 'Meta Engineering Team consists of senior front-end engineers and technical leads at Meta (Facebook).',
+    modules: [
+      'Course 1: Introduction to Front-End Development',
+      'Course 2: Programming with JavaScript',
+      'Course 3: Version Control with Git',
+      'Course 4: HTML and CSS in Depth',
+      'Course 5: React Basics & Advanced React',
+      'Course 6: Principles of UX/UI Design',
+      'Course 7: Front-End Developer Capstone'
+    ]
+  },
+  {
+    id: 'c_stanford_1',
+    title: 'Stanford CS229: Machine Learning',
+    description: 'The legendary Stanford Machine Learning course by Andrew Ng. Master supervised learning, deep learning, generalization, and unsupervised learning theory.',
+    category: 'AI & ML',
+    instructor: 'Andrew Ng & Tengyu Ma',
+    provider: 'Stanford University',
+    duration: '11 Weeks (15 hrs/wk)',
+    rating: '4.9 ⭐',
+    ratingCount: '85,000+',
+    students: '1,200,000+',
+    platform: 'Coursera',
+    courseUrl: 'https://www.coursera.org/specializations/machine-learning-introduction',
+    udemyUrl: 'https://www.coursera.org/specializations/machine-learning-introduction',
+    level: 'Advanced',
+    prerequisites: 'Linear Algebra, Probability, Python',
+    whatYouWillLearn: [
+      'Master supervised learning: linear models, SVMs, and kernel methods',
+      'Understand learning theory, bias-variance tradeoff, and generalization',
+      'Implement deep neural networks and backpropagation from scratch',
+      'Apply unsupervised learning: PCA, k-means, and mixture models',
+      'Design and evaluate reinforcement learning agents',
+      'Solve real-world ML problems with mathematical rigor'
+    ],
+    fullDescription: `CS229 is Stanford's flagship Machine Learning course, originally taught by Andrew Ng. It provides a broad introduction to machine learning with emphasis on mathematical foundations and practical algorithms.`,
+    targetAudience: [
+      'Graduate students in computer science and engineering',
+      'ML engineers seeking rigorous theoretical foundations',
+      'Researchers preparing for AI/ML graduate programs'
+    ],
+    requirements: [
+      'Strong linear algebra and probability background',
+      'Proficiency in Python or MATLAB',
+      'Multivariable calculus'
+    ],
+    instructorBio: 'Andrew Ng is Co-founder of Coursera and Adjunct Professor at Stanford. Tengyu Ma is Assistant Professor of Computer Science at Stanford.',
+    modules: [
+      'Module 1: Linear Regression & Gradient Descent',
+      'Module 2: Logistic Regression & Generalized Linear Models',
+      'Module 3: Generative Learning Algorithms (GDA, Naive Bayes)',
+      'Module 4: Support Vector Machines & Kernels',
+      'Module 5: Neural Networks & Deep Learning',
+      'Module 6: Unsupervised Learning & Dimensionality Reduction',
+      'Module 7: Reinforcement Learning & Control'
+    ]
+  },
+  {
+    id: 'c_udemy_9',
+    title: 'Docker & Kubernetes: The Complete Guide',
+    description: 'Master Docker and Kubernetes from scratch. Build, test, and deploy Docker applications with Kubernetes, Helm, CI/CD pipelines, and AWS EKS.',
+    category: 'DevOps & Cloud',
+    instructor: 'Stephen Grider',
+    provider: 'Udemy',
+    duration: '22 Hours',
+    rating: '4.8 ⭐',
+    ratingCount: '68,000+',
+    students: '320,000+',
+    platform: 'Udemy',
+    courseUrl: 'https://www.udemy.com/course/docker-and-kubernetes-the-complete-guide/',
+    udemyUrl: 'https://www.udemy.com/course/docker-and-kubernetes-the-complete-guide/',
+    level: 'Intermediate',
+    prerequisites: 'Basic Terminal/CLI Knowledge',
+    whatYouWillLearn: [
+      'Build and deploy Docker images and containers',
+      'Create multi-container applications with Docker Compose',
+      'Master Kubernetes architecture: Pods, Services, Deployments',
+      'Set up CI/CD pipelines with GitHub Actions and Travis CI',
+      'Deploy production clusters on AWS EKS and Google GKE',
+      'Implement Helm charts for package management'
+    ],
+    fullDescription: `Learn Docker and Kubernetes from the ground up! This course covers everything from building your first Docker container to deploying complex multi-service applications on Kubernetes clusters in production.`,
+    targetAudience: [
+      'Developers wanting to master containerization',
+      'DevOps engineers building CI/CD pipelines',
+      'Cloud architects designing microservice systems'
+    ],
+    requirements: [
+      'Basic command line experience',
+      'Familiarity with any programming language'
+    ],
+    instructorBio: 'Stephen Grider is a top Udemy instructor with over 1.5 million students worldwide.',
+    modules: [
+      'Module 1: Docker Fundamentals & Images',
+      'Module 2: Docker Compose & Multi-Container Apps',
+      'Module 3: CI/CD with Docker & GitHub Actions',
+      'Module 4: Kubernetes Architecture & Core Concepts',
+      'Module 5: Production Deployments (AWS EKS & Helm)'
+    ]
+  },
+  {
+    id: 'c_udemy_10',
+    title: 'React - The Complete Guide 2024 (incl. Next.js, Redux)',
+    description: 'Dive into React.js, Next.js, Redux, React Router, and more. Build powerful, modern, reactive web applications with the most popular JavaScript library.',
+    category: 'Web Dev',
+    instructor: 'Maximilian Schwarzmüller',
+    provider: 'Academind',
+    duration: '68 Hours',
+    rating: '4.8 ⭐',
+    ratingCount: '210,000+',
+    students: '890,000+',
+    platform: 'Udemy',
+    courseUrl: 'https://www.udemy.com/course/react-the-complete-guide-incl-redux/',
+    udemyUrl: 'https://www.udemy.com/course/react-the-complete-guide-incl-redux/',
+    level: 'All Levels',
+    prerequisites: 'JavaScript Basics',
+    whatYouWillLearn: [
+      'Build powerful React front-end applications from scratch',
+      'Master React Hooks, Context API, and custom hooks patterns',
+      'Implement global state management with Redux Toolkit',
+      'Build full-stack apps with Next.js and server-side rendering',
+      'Handle routing, authentication, and data fetching',
+      'Deploy React and Next.js apps to production'
+    ],
+    fullDescription: `This bestselling React course has been updated for 2024 with the latest features including React 19, Next.js 14 App Router, and Redux Toolkit. Learn React from the ground up and build real-world projects.`,
+    targetAudience: [
+      'JavaScript developers wanting to master React',
+      'Frontend developers upgrading to modern React patterns',
+      'Full-stack developers learning Next.js'
+    ],
+    requirements: [
+      'JavaScript fundamentals (ES6+)',
+      'Basic HTML and CSS knowledge'
+    ],
+    instructorBio: 'Maximilian Schwarzmüller is a bestselling Udemy instructor with over 3 million students and founder of Academind.',
+    modules: [
+      'Module 1: React Fundamentals & JSX',
+      'Module 2: React Hooks Deep Dive',
+      'Module 3: State Management with Context & Redux',
+      'Module 4: React Router & Multi-Page SPAs',
+      'Module 5: Next.js & Full-Stack React',
+      'Module 6: Authentication, Testing & Deployment'
+    ]
+  },
+  {
+    id: 'c_edx_3',
+    title: 'MIT 6.S191: Introduction to Deep Learning',
+    description: 'MIT\'s official introductory course on Deep Learning. Learn the foundations of neural networks, sequence modeling, generative AI, and reinforcement learning.',
+    category: 'AI & ML',
+    instructor: 'Alexander Amini & Ava Amini',
+    provider: 'MIT',
+    duration: '6 Weeks (8 hrs/wk)',
+    rating: '4.9 ⭐',
+    ratingCount: '35,000+',
+    students: '520,000+',
+    platform: 'edX',
+    courseUrl: 'https://www.edx.org/learn/deep-learning/massachusetts-institute-of-technology-introduction-to-deep-learning',
+    udemyUrl: 'https://www.edx.org/learn/deep-learning/massachusetts-institute-of-technology-introduction-to-deep-learning',
+    level: 'Intermediate',
+    prerequisites: 'Python, Calculus, Linear Algebra',
+    whatYouWillLearn: [
+      'Build and train neural networks using TensorFlow',
+      'Implement Convolutional Neural Networks for computer vision',
+      'Design Recurrent Neural Networks and Transformers for NLP',
+      'Create Generative Adversarial Networks (GANs) and VAEs',
+      'Apply Deep Reinforcement Learning to control problems',
+      'Understand AI safety, fairness, and societal implications'
+    ],
+    fullDescription: `MIT 6.S191 is MIT's official introductory course on deep learning methods. The course covers the foundations of deep learning, including neural networks, convolutional networks, recurrent networks, transformers, generative models, and deep reinforcement learning.`,
+    targetAudience: [
+      'Engineering students seeking MIT-level deep learning education',
+      'ML practitioners wanting rigorous theoretical foundations',
+      'Researchers interested in cutting-edge AI methods'
+    ],
+    requirements: [
+      'Python programming experience',
+      'Calculus and linear algebra fundamentals',
+      'Basic probability and statistics'
+    ],
+    instructorBio: 'Alexander Amini is a PhD candidate at MIT CSAIL and creator of MIT 6.S191. Ava Amini is a researcher at Microsoft Research.',
+    modules: [
+      'Module 1: Introduction to Deep Learning & Dense Networks',
+      'Module 2: Sequence Modeling with RNNs & Transformers',
+      'Module 3: Convolutional Neural Networks & Vision',
+      'Module 4: Generative Models (GANs, VAEs, Diffusion)',
+      'Module 5: Deep Reinforcement Learning',
+      'Module 6: AI Limitations, Ethics & Societal Impact'
+    ]
   }
 ];
 
