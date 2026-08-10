@@ -12,7 +12,7 @@ body {
   color: var(--text-main);
   line-height: 1.6;
   min-height: 100vh;
-  background-image: 
+  background-image:
     radial-gradient(at 15% 15%, rgba(99, 102, 241, 0.20) 0px, transparent 45%),
     radial-gradient(at 85% 85%, rgba(6, 182, 212, 0.18) 0px, transparent 45%),
     radial-gradient(at 50% 50%, rgba(168, 85, 247, 0.10) 0px, transparent 60%);
@@ -151,7 +151,12 @@ a:hover {
 }
 
 /* Typography Helpers */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   color: var(--text-main);
   font-weight: var(--font-weight-bold);
   line-height: 1.25;
@@ -198,10 +203,36 @@ p {
   justify-content: center;
   width: 38px;
   height: 38px;
-  background: var(--primary-gradient);
+  background: var(--accent-gradient);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-glow-cyan);
   color: #fff;
+}
+
+.nav-brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(6, 182, 212, 0.12);
+  color: #67e8f9;
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  margin-left: 4px;
+}
+
+.navbar-center-highlights {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .navbar-center-highlights {
+    display: none;
+  }
 }
 
 .navbar-links {
@@ -374,7 +405,9 @@ p {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Form Styling */
@@ -719,7 +752,8 @@ select.form-control {
   color: inherit;
 }
 
-.stat-card:hover, .stat-card.clickable:hover {
+.stat-card:hover,
+.stat-card.clickable:hover {
   border-color: var(--border-glow);
   transform: translateY(-2px);
   background: var(--bg-card-hover);
@@ -1430,6 +1464,7 @@ select.form-control {
   background: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
+
 .state-card {
   display: flex;
   flex-direction: column;
@@ -1571,7 +1606,10 @@ select.form-control {
     grid-template-columns: 1fr;
   }
 
-  .course-detail-card, .profile-card, .course-info-panel, .action-panel {
+  .course-detail-card,
+  .profile-card,
+  .course-info-panel,
+  .action-panel {
     padding: var(--space-6);
   }
 

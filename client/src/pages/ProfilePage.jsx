@@ -2,22 +2,22 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import Avatar from '../components/Avatar';
-import { 
-  User, 
-  Mail, 
-  ShieldCheck, 
-  Key, 
-  Hash, 
-  CheckCircle2, 
-  Copy, 
-  Award, 
-  Flame, 
-  Sparkles, 
-  Check, 
-  Shield, 
-  Zap, 
-  Lock, 
-  ExternalLink 
+import {
+  User,
+  Mail,
+  ShieldCheck,
+  Key,
+  Hash,
+  CheckCircle2,
+  Copy,
+  Award,
+  Flame,
+  Sparkles,
+  Check,
+  Shield,
+  Zap,
+  Lock,
+  ExternalLink
 } from 'lucide-react';
 
 const ProfilePage = () => {
@@ -32,8 +32,8 @@ const ProfilePage = () => {
   };
 
   return (
-    <div className="profile-container animate-fade-in" style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
-      <div className="glass-card" style={{ overflow: 'hidden', padding: 0 }}>
+    <div className="profile-container animate-fade-in" style={{ width: '100%', maxWidth: '100%' }}>
+      <div className="glass-card" style={{ overflow: 'hidden', padding: 0, width: '100%' }}>
         {/* Cover Gradient Banner */}
         <div className="profile-cover-banner">
           <div style={{ position: 'absolute', top: '16px', right: '16px' }}>
