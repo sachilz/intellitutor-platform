@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getCourses, enrollInCourse } from '../api/courseApi';
 import { getUserProgress, updateProgress, createProgress } from '../api/progressApi';
 import { CourseGridSkeleton } from '../components/SkeletonLoader';
 import { CURATED_COURSES, getCategoryBadgeClass } from '../data/coursesCatalog';
+import { getStoredProgressMap, saveStoredProgressMap, setStoredCourseProgress, removeStoredCourseProgress } from '../utils/progressStorage';
+import TimeAnalyticsModal from '../components/TimeAnalyticsModal';
 import { 
   BookOpen, 
   GraduationCap, 
@@ -40,16 +42,37 @@ import {
   MessageSquare,
   HelpCircle,
   BarChart2,
-  Check
+  Check,
+  ExternalLink,
+  Users,
+  Globe,
+  PieChart,
+  Trash2,
+  Pause,
+  Play
 } from 'lucide-react';
 
 const DashboardPage = () => {
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { addToast } = useToast();
   const [courses, setCourses] = useState([]);
-  const [userProgressMap, setUserProgressMap] = useState({});
+  const [userProgressMap, setUserProgressMap] = useState(() => getStoredProgressMap());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Synchronize progress map with local storage updates across windows/pages
+  useEffect(() => {
+    const handleProgressUpdate = () => {
+      setUserProgressMap(getStoredProgressMap());
+    };
+    window.addEventListener('progress_updated', handleProgressUpdate);
+    window.addEventListener('storage', handleProgressUpdate);
+    return () => {
+      window.removeEventListener('progress_updated', handleProgressUpdate);
+      window.removeEventListener('storage', handleProgressUpdate);
+    };
+  }, []);
 
   // Interactive Filter & Layout States
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,6 +82,29 @@ const DashboardPage = () => {
   const [previewCourse, setPreviewCourse] = useState(null);
   const [previewTab, setPreviewTab] = useState('overview'); // 'overview' | 'syllabus' | 'skills'
   const [actionLoadingId, setActionLoadingId] = useState(null);
+
+  // Synchronize category filter from URL search parameters (e.g. ?filter=ENROLLED)
+  useEffect(() => {
+    const filterParam = searchParams.get('filter');
+    if (filterParam) {
+      const upper = filterParam.toUpperCase();
+      const currentEnrolledCount = Object.keys(getStoredProgressMap()).length;
+      if (upper === 'ENROLLED' && currentEnrolledCount === 0) {
+        setSelectedCategory('ALL');
+      } else {
+        setSelectedCategory(upper);
+      }
+    } else {
+      setSelectedCategory('ALL');
+    }
+  }, [searchParams]);
+
+  // Unenroll Course Handler
+  const handleUnenrollCourse = (courseId) => {
+    if (!courseId) return;
+    removeStoredCourseProgress(courseId);
+    addToast('Unenrolled course successfully.', 'info', 'Course Removed');
+  };
 
   // Bookmarked / Favorite Courses (Persisted in localStorage)
   const [favorites, setFavorites] = useState(() => {
@@ -75,9 +121,33 @@ const DashboardPage = () => {
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [userXp, setUserXp] = useState(350);
 
-  // Interactive Study Goal Tracker (in hours)
+  // Interactive Study Goal Tracker & Time Analytics Modal (in hours)
   const [loggedHours, setLoggedHours] = useState(3.5);
+  const [showTimeAnalyticsModal, setShowTimeAnalyticsModal] = useState(false);
   const targetHours = 5.0;
+
+  // Global Live Study Stopwatch State (Syncs with Top Banner & Modal)
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // Interval Ticking Effect
+  useEffect(() => {
+    let interval = null;
+    if (timerRunning) {
+      interval = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timerRunning]);
+
+  // Helper to format timer as HH:MM:SS or MM:SS
+  const formatTimer = (totalSec) => {
+    const hrs = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    return `${hrs > 0 ? `${hrs.toString().padStart(2, '0')}:` : ''}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // AI Assistant Sandbox Terminal State
   const [aiSandboxPrompt, setAiSandboxPrompt] = useState('');
@@ -137,20 +207,25 @@ const DashboardPage = () => {
 
       setCourses(Array.from(mergedMap.values()));
 
+      // Load local progress map & combine with API progress
+      const localMap = getStoredProgressMap();
+      let apiMap = {};
       if (user?.id) {
         try {
           const progressList = await getUserProgress(user.id);
-          const map = {};
           if (Array.isArray(progressList)) {
             progressList.forEach((p) => {
-              map[p.courseId] = p.completedPercent;
+              apiMap[p.courseId] = p.completedPercent;
             });
           }
-          setUserProgressMap(map);
         } catch (pErr) {
           console.warn('Could not fetch user progress:', pErr);
         }
       }
+
+      const combinedMap = { ...localMap, ...apiMap };
+      setUserProgressMap(combinedMap);
+      saveStoredProgressMap(combinedMap);
     } catch (err) {
       console.error('Failed to fetch courses:', err);
       setError('Failed to load courses from API. Showing curated catalog.');
@@ -178,6 +253,9 @@ const DashboardPage = () => {
   }, [courses, userProgressMap]);
 
   const enrolledCount = enrolledCoursesList.length;
+  const courseraCount = useMemo(() => courses.filter((c) => c.platform === 'Coursera').length, [courses]);
+  const udemyCount = useMemo(() => courses.filter((c) => c.platform === 'Udemy').length, [courses]);
+  const edxCount = useMemo(() => courses.filter((c) => c.platform === 'edX').length, [courses]);
 
   const avgProgress = useMemo(() => {
     const values = Object.values(userProgressMap);
@@ -188,16 +266,22 @@ const DashboardPage = () => {
 
   // Quick Progress Increment Handler (+10%)
   const handleQuickProgressBump = async (courseId, currentPercent = 0) => {
-    if (!user?.id) return;
     const newPercent = Math.min(100, (Number(currentPercent) || 0) + 10);
     setActionLoadingId(courseId);
     try {
-      const updated = await updateProgress(user.id, courseId, newPercent);
-      setUserProgressMap((prev) => ({ ...prev, [courseId]: updated.completedPercent }));
-      addToast(`Progress boosted to ${updated.completedPercent}%! 🚀`, 'success', 'Keep it up!');
-    } catch (err) {
-      setUserProgressMap((prev) => ({ ...prev, [courseId]: newPercent }));
-      addToast(`Progress updated to ${newPercent}%!`, 'info', 'Progress Saved');
+      if (user?.id) {
+        try {
+          const updated = await updateProgress(user.id, courseId, newPercent);
+          setStoredCourseProgress(courseId, updated.completedPercent);
+          addToast(`Progress boosted to ${updated.completedPercent}%! 🚀`, 'success', 'Keep it up!');
+        } catch (apiErr) {
+          setStoredCourseProgress(courseId, newPercent);
+          addToast(`Progress updated to ${newPercent}%!`, 'info', 'Progress Saved');
+        }
+      } else {
+        setStoredCourseProgress(courseId, newPercent);
+        addToast(`Progress updated to ${newPercent}%!`, 'info', 'Progress Saved');
+      }
     } finally {
       setActionLoadingId(null);
     }
@@ -205,20 +289,21 @@ const DashboardPage = () => {
 
   // Quick Enroll Handler from Modal
   const handleModalEnroll = async (courseId) => {
-    if (!user?.id) return;
     setActionLoadingId(courseId);
     try {
-      await enrollInCourse(courseId, user.id);
-      try {
-        await createProgress(user.id, courseId);
-      } catch (pErr) {
-        console.warn('Progress creation fallback', pErr);
+      if (user?.id) {
+        try {
+          await enrollInCourse(courseId, user.id);
+          await createProgress(user.id, courseId);
+        } catch (apiErr) {
+          console.warn('API Gateway enrollment fallback:', apiErr);
+        }
       }
-      setUserProgressMap((prev) => ({ ...prev, [courseId]: 0 }));
+      setStoredCourseProgress(courseId, 0);
       addToast('Enrolled successfully! Welcome aboard 🎓', 'success', 'Registration Confirmed');
       setPreviewCourse(null);
     } catch (err) {
-      setUserProgressMap((prev) => ({ ...prev, [courseId]: 0 }));
+      setStoredCourseProgress(courseId, 0);
       addToast('Enrolled in course catalog!', 'success', 'Course Enrolled');
       setPreviewCourse(null);
     } finally {
@@ -322,13 +407,20 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
       const isEnrolled = userProgressMap[courseId] !== undefined;
       const isFav = favorites.includes(courseId);
 
-      // Category filter
-      if (selectedCategory === 'ENROLLED' && !isEnrolled) return false;
-      if (selectedCategory === 'FAVORITES' && !isFav) return false;
+      // Category & Platform filter
+      const totalEnrolledCount = Object.keys(userProgressMap).length;
+      if (selectedCategory === 'ENROLLED' && totalEnrolledCount > 0 && !isEnrolled) return false;
+      if (selectedCategory === 'FAVORITES' && favorites.length > 0 && !isFav) return false;
+      if (selectedCategory === 'COURSERA' && course.platform !== 'Coursera') return false;
+      if (selectedCategory === 'UDEMY' && course.platform !== 'Udemy') return false;
+      if (selectedCategory === 'EDX' && course.platform !== 'edX') return false;
       if (
         selectedCategory !== 'ALL' &&
         selectedCategory !== 'ENROLLED' &&
         selectedCategory !== 'FAVORITES' &&
+        selectedCategory !== 'COURSERA' &&
+        selectedCategory !== 'UDEMY' &&
+        selectedCategory !== 'EDX' &&
         course.category !== selectedCategory
       ) {
         return false;
@@ -379,6 +471,69 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
   return (
     <div className="dashboard-container animate-fade-in" style={{ position: 'relative' }}>
       
+      {/* 0. TOP LIVE STUDY SESSION BANNER */}
+      {timerRunning && (
+        <div 
+          className="glass-card animate-slide-down"
+          style={{
+            marginBottom: '20px',
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(168, 85, 247, 0.2))',
+            border: '1.5px solid rgba(16, 185, 129, 0.6)',
+            boxShadow: '0 10px 30px rgba(16, 185, 129, 0.3)',
+            borderRadius: '16px',
+            padding: '12px 20px',
+            display: 'flex',
+            justify: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            backdropFilter: 'blur(16px)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 10px #ef4444', display: 'inline-block' }} />
+              <Clock size={18} color="#6ee7b7" />
+              <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f3e8ff', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Live Study Session Active:
+              </span>
+            </div>
+            <span style={{
+              fontSize: '1.4rem',
+              fontWeight: 900,
+              fontFamily: 'monospace',
+              color: '#6ee7b7',
+              background: 'rgba(15, 23, 42, 0.75)',
+              padding: '2px 12px',
+              borderRadius: '8px',
+              border: '1px solid rgba(16, 185, 129, 0.4)'
+            }}>
+              {formatTimer(elapsedSeconds)}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setTimerRunning(false)}
+              className="btn btn-secondary btn-sm"
+              style={{ padding: '6px 12px', fontSize: '0.78rem', color: '#fca5a5', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+            >
+              <Pause size={14} /> Pause
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowTimeAnalyticsModal(true)}
+              className="btn btn-secondary btn-sm"
+              style={{ padding: '6px 12px', fontSize: '0.78rem', color: '#c084fc', borderColor: 'rgba(168, 85, 247, 0.4)' }}
+            >
+              <PieChart size={14} /> View Analytics
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1. HERO BANNER WITH AMBIENT MESH GRADIENT & AI COMMAND TERMINAL */}
       <div 
         className="welcome-banner glass-card" 
@@ -398,10 +553,10 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(6, 182, 212, 0.15)', border: '1px solid rgba(6, 182, 212, 0.4)', padding: '5px 16px', borderRadius: '20px', fontSize: '0.8rem', color: '#67e8f9', fontWeight: 600, marginBottom: '12px' }}>
                 <Sparkles size={14} color="var(--neon-cyan)" /> Intelligent AI Learning Hub & Assistant
               </div>
-              <h1 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+              <h1 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>
                 {timeGreeting.text}, {user?.username || 'Learner'}! {timeGreeting.emoji}
               </h1>
-              <p style={{ maxWidth: '750px', color: 'var(--text-muted)', fontSize: '1rem', marginTop: '4px' }}>
+              <p style={{ maxWidth: '750px', color: 'var(--text-muted)', fontSize: '1rem', marginTop: '8px' }}>
                 Master cutting-edge AI technologies, prompt your AI tutor, track real-time progress, and earn verified skill credentials.
               </p>
             </div>
@@ -661,27 +816,37 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
           </div>
         </button>
 
-        {/* Interactive Weekly Goal Tracker */}
-        <div className="stat-card" style={{ cursor: 'default' }}>
+        {/* Interactive Weekly Goal Tracker & Time Analytics Launcher */}
+        <div 
+          className="stat-card clickable" 
+          onClick={() => setShowTimeAnalyticsModal(true)} 
+          title="Click to view live time spending analytics & live pie chart"
+          style={{ borderColor: 'rgba(168, 85, 247, 0.4)' }}
+        >
           <div className="stat-icon-box" style={{ background: 'rgba(168, 85, 247, 0.18)', color: '#c084fc' }}>
-            <BarChart2 size={24} />
+            <PieChart size={24} />
           </div>
           <div className="stat-info" style={{ flex: 1 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="stat-value" style={{ fontSize: '1.1rem' }}>{loggedHours}h / {targetHours}h</span>
               <button
                 type="button"
-                onClick={handleLogStudyTime}
+                onClick={(e) => { e.stopPropagation(); handleLogStudyTime(); }}
                 className="btn btn-secondary btn-sm"
-                style={{ padding: '2px 6px', fontSize: '0.68rem' }}
+                style={{ padding: '2px 6px', fontSize: '0.68rem', zIndex: 2 }}
                 title="Log 30 mins learning session"
               >
                 +30m
               </button>
             </div>
-            <span className="stat-label">Weekly Target Goal</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+              <span className="stat-label">Weekly Target Goal</span>
+              <span style={{ fontSize: '0.65rem', background: 'rgba(168, 85, 247, 0.2)', color: '#c084fc', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(168, 85, 247, 0.4)', gap: '3px', display: 'inline-flex', alignItems: 'center', fontWeight: 600 }}>
+                <PieChart size={10} /> Live Chart ↗
+              </span>
+            </div>
             <div className="progress-bar-container" style={{ height: '4px', marginTop: '4px' }}>
-              <div className="progress-bar-fill" style={{ width: `${(loggedHours / targetHours) * 100}%`, background: 'var(--neon-violet)' }}></div>
+              <div className="progress-bar-fill" style={{ width: `${Math.min(100, (loggedHours / targetHours) * 100)}%`, background: 'var(--neon-violet)' }}></div>
             </div>
           </div>
         </div>
@@ -768,15 +933,41 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
             All ({courses.length})
           </button>
 
-          {enrolledCount > 0 && (
-            <button
-              type="button"
-              className={`category-pill ${selectedCategory === 'ENROLLED' ? 'active' : ''}`}
-              onClick={() => setSelectedCategory('ENROLLED')}
-            >
-              Enrolled ({enrolledCount})
-            </button>
-          )}
+          <button
+            type="button"
+            className={`category-pill ${selectedCategory === 'COURSERA' ? 'active' : ''}`}
+            onClick={() => setSelectedCategory('COURSERA')}
+            style={selectedCategory === 'COURSERA' ? {} : { color: '#60a5fa', borderColor: 'rgba(0, 86, 210, 0.4)' }}
+          >
+            <Globe size={12} /> Coursera ({courseraCount})
+          </button>
+
+          <button
+            type="button"
+            className={`category-pill ${selectedCategory === 'UDEMY' ? 'active' : ''}`}
+            onClick={() => setSelectedCategory('UDEMY')}
+            style={selectedCategory === 'UDEMY' ? {} : { color: '#d1a8ff', borderColor: 'rgba(164, 53, 240, 0.4)' }}
+          >
+            <BookOpen size={12} /> Udemy ({udemyCount})
+          </button>
+
+          <button
+            type="button"
+            className={`category-pill ${selectedCategory === 'EDX' ? 'active' : ''}`}
+            onClick={() => setSelectedCategory('EDX')}
+            style={selectedCategory === 'EDX' ? {} : { color: '#fca5a5', borderColor: 'rgba(185, 28, 28, 0.4)' }}
+          >
+            <Sparkles size={12} /> edX ({edxCount})
+          </button>
+
+          <button
+            type="button"
+            className={`category-pill ${selectedCategory === 'ENROLLED' ? 'active' : ''}`}
+            onClick={() => setSelectedCategory('ENROLLED')}
+            style={enrolledCount > 0 && selectedCategory !== 'ENROLLED' ? { borderColor: 'rgba(16, 185, 129, 0.4)', color: '#6ee7b7' } : {}}
+          >
+            🎓 Enrolled ({enrolledCount})
+          </button>
 
           {favorites.length > 0 && (
             <button
@@ -860,10 +1051,30 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
                 style={{ borderTop: `3px solid ${course.category === 'GenAI' ? '#c084fc' : course.category === 'Web Dev' ? '#6ee7b7' : course.category === 'DevOps & Cloud' ? '#fcd34d' : 'var(--primary)'}` }}
               >
                 <div className="course-card-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className={`badge ${badgeClass}`}>
-                      {course.category || 'AI & ML'}
-                    </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span className={`badge ${badgeClass}`}>
+                        {course.category || 'AI & ML'}
+                      </span>
+                      {course.platform === 'Coursera' ? (
+                        <span style={{ background: 'rgba(0, 86, 210, 0.18)', color: '#60a5fa', border: '1px solid rgba(0, 86, 210, 0.45)', borderRadius: '6px', padding: '2px 8px', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <Globe size={11} /> Coursera
+                        </span>
+                      ) : course.platform === 'edX' ? (
+                        <span style={{ background: 'rgba(185, 28, 28, 0.18)', color: '#fca5a5', border: '1px solid rgba(185, 28, 28, 0.45)', borderRadius: '6px', padding: '2px 8px', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <Sparkles size={11} /> edX
+                        </span>
+                      ) : (
+                        <span style={{ background: 'rgba(164, 53, 240, 0.18)', color: '#d1a8ff', border: '1px solid rgba(164, 53, 240, 0.45)', borderRadius: '6px', padding: '2px 8px', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <BookOpen size={11} /> Udemy
+                        </span>
+                      )}
+                      {course.provider && (
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', background: 'rgba(255, 255, 255, 0.05)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                          {course.provider}
+                        </span>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {course.rating && (
                         <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fcd34d', display: 'flex', alignItems: 'center', gap: '3px' }}>
@@ -896,11 +1107,17 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
                     ))}
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '4px', flexWrap: 'wrap', gap: '6px' }}>
                     {course.instructor && (
                       <div className="course-meta">
                         <User size={13} />
                         <span>{course.instructor}</span>
+                      </div>
+                    )}
+                    {course.students && (
+                      <div className="course-meta">
+                        <Users size={13} color="#93c5fd" />
+                        <span style={{ color: '#93c5fd', fontWeight: 600 }}>{course.students}</span>
                       </div>
                     )}
                     {course.duration && (
@@ -938,19 +1155,73 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
                   )}
                 </div>
 
-                <div className="course-card-footer" style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                <div className="course-card-footer" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
                   <button
                     type="button"
                     onClick={() => { setPreviewCourse(course); setPreviewTab('overview'); }}
                     className="btn btn-secondary btn-sm"
+                    style={{ padding: '8px 10px', flexShrink: 0 }}
                     title="Quick preview course syllabus"
                   >
                     <Eye size={15} />
                   </button>
                   
-                  <Link to={`/courses/${courseId}`} className="btn btn-primary btn-block">
-                    <span>{isEnrolled ? 'Continue Course' : 'View & Enroll'}</span>
-                    <ArrowRight size={16} />
+                  {isEnrolled && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); handleUnenrollCourse(courseId); }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '8px 10px', flexShrink: 0, color: '#fca5a5', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                      title="Unenroll / Remove Course"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                  
+                  {(course.courseUrl || course.udemyUrl) && (
+                    <a 
+                      href={course.courseUrl || course.udemyUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="btn btn-secondary btn-sm" 
+                      title={`View real-time course on ${course.platform || 'Platform'}`}
+                      style={{
+                        padding: '8px 10px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        textDecoration: 'none',
+                        flexShrink: 0,
+                        color: course.platform === 'Coursera' ? '#60a5fa' : course.platform === 'edX' ? '#fca5a5' : '#d1a8ff',
+                        borderColor: course.platform === 'Coursera' ? 'rgba(0, 86, 210, 0.45)' : course.platform === 'edX' ? 'rgba(185, 28, 28, 0.45)' : 'rgba(164, 53, 240, 0.45)'
+                      }}
+                    >
+                      <ExternalLink size={14} />
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>{course.platform || 'Link'}</span>
+                    </a>
+                  )}
+
+                  <Link 
+                    to={`/courses/${courseId}`} 
+                    className="btn btn-primary btn-sm" 
+                    style={{ 
+                      flex: 1, 
+                      minWidth: 0, 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      justify: 'center', 
+                      gap: '6px', 
+                      padding: '8px 12px', 
+                      whiteSpace: 'nowrap', 
+                      overflow: 'hidden', 
+                      fontSize: '0.82rem',
+                      fontWeight: 700
+                    }}
+                  >
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {isEnrolled ? 'Continue' : 'View & Enroll'}
+                    </span>
+                    <ArrowRight size={14} style={{ flexShrink: 0 }} />
                   </Link>
                 </div>
               </div>
@@ -1117,6 +1388,19 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
                   <span className="info-value"><Clock size={14} color="var(--accent)" /> {previewCourse.duration || 'Self-paced'}</span>
                 </div>
                 <div className="info-item">
+                  <span className="info-label">Reference Platform</span>
+                  <span className="info-value" style={{ color: previewCourse.platform === 'Coursera' ? '#60a5fa' : '#d1a8ff', fontWeight: 700 }}>
+                    {previewCourse.platform === 'Coursera' ? <Globe size={14} color="#60a5fa" /> : <BookOpen size={14} color="#d1a8ff" />}
+                    {' '}{previewCourse.platform || 'Udemy'}
+                  </span>
+                </div>
+                {previewCourse.students && (
+                  <div className="info-item">
+                    <span className="info-label">Enrolled Students</span>
+                    <span className="info-value" style={{ color: '#93c5fd' }}><Users size={14} color="#93c5fd" /> {previewCourse.students}</span>
+                  </div>
+                )}
+                <div className="info-item">
                   <span className="info-label">Prerequisites</span>
                   <span className="info-value">{previewCourse.prerequisites || 'Basic Programming'}</span>
                 </div>
@@ -1144,12 +1428,33 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '12px', flexWrap: 'wrap' }}>
+              {(previewCourse.courseUrl || previewCourse.udemyUrl) && (
+                <a
+                  href={previewCourse.courseUrl || previewCourse.udemyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary btn-lg"
+                  style={{
+                    textDecoration: 'none',
+                    color: previewCourse.platform === 'Coursera' ? '#60a5fa' : '#d1a8ff',
+                    borderColor: previewCourse.platform === 'Coursera' ? 'rgba(0, 86, 210, 0.5)' : 'rgba(164, 53, 240, 0.5)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <ExternalLink size={18} />
+                  <span>View on {previewCourse.platform || 'Platform'}</span>
+                </a>
+              )}
+
               {userProgressMap[previewCourse.id || previewCourse._id] !== undefined ? (
                 <Link
                   to={`/courses/${previewCourse.id || previewCourse._id}`}
                   className="btn btn-primary btn-block btn-lg"
                   onClick={() => setPreviewCourse(null)}
+                  style={{ flex: 1 }}
                 >
                   Go to Course Workspace
                 </Link>
@@ -1159,6 +1464,7 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
                   onClick={() => handleModalEnroll(previewCourse.id || previewCourse._id)}
                   disabled={actionLoadingId === (previewCourse.id || previewCourse._id)}
                   className="btn btn-primary btn-block btn-lg"
+                  style={{ flex: 1 }}
                 >
                   {actionLoadingId === (previewCourse.id || previewCourse._id) ? (
                     <>
@@ -1257,6 +1563,23 @@ Transformers rely on **Self-Attention mechanisms** to weigh the importance of in
           </div>
         </div>
       )}
+
+      {/* 13. INTERACTIVE TIME SPENDING ANALYTICS MODAL WITH LIVE PIE CHART */}
+      <TimeAnalyticsModal
+        isOpen={showTimeAnalyticsModal}
+        onClose={() => setShowTimeAnalyticsModal(false)}
+        loggedHours={loggedHours}
+        setLoggedHours={setLoggedHours}
+        targetHours={targetHours}
+        timerRunning={timerRunning}
+        setTimerRunning={setTimerRunning}
+        elapsedSeconds={elapsedSeconds}
+        setElapsedSeconds={setElapsedSeconds}
+        onAddXp={(xpAmount) => {
+          setUserXp((prev) => prev + xpAmount);
+          addToast(`Logged study time! +${xpAmount} XP added 🚀`, 'success', 'Time Logged');
+        }}
+      />
 
     </div>
   );

@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getCourseById, enrollInCourse } from '../api/courseApi';
 import { getCourseProgress, createProgress, updateProgress } from '../api/progressApi';
 import { CourseDetailSkeleton } from '../components/SkeletonLoader';
 import { CURATED_COURSES, getCategoryBadgeClass } from '../data/coursesCatalog';
+import { getStoredProgressMap, setStoredCourseProgress, removeStoredCourseProgress } from '../utils/progressStorage';
 import { 
   ArrowLeft, 
   BookOpen, 
@@ -25,11 +26,16 @@ import {
   Award, 
   Layers, 
   Check, 
-  Zap 
+  Zap,
+  ExternalLink,
+  Users,
+  Globe,
+  Trash2
 } from 'lucide-react';
 
 const CourseDetailPage = () => {
   const { id: courseId } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { addToast } = useToast();
 
@@ -42,7 +48,7 @@ const CourseDetailPage = () => {
   const [message, setMessage] = useState('');
 
   // Interactive Workspace Tabs State
-  const [activeTab, setActiveTab] = useState('SYLLABUS'); // 'SYLLABUS' | 'AI_TUTOR' | 'RESOURCES'
+  const [activeTab, setActiveTab] = useState('OVERVIEW'); // 'OVERVIEW' | 'SYLLABUS' | 'AI_TUTOR' | 'RESOURCES'
 
   // Interactive Module Checklist State
   const [completedModules, setCompletedModules] = useState([]);
@@ -71,20 +77,41 @@ const CourseDetailPage = () => {
 
     setCourse(courseObj);
 
-    if (user?.id && courseObj) {
-      try {
-        const prog = await getCourseProgress(user.id, courseId);
-        setProgress(prog);
-        const percent = prog.completedPercent || 0;
-        setPercentInput(percent);
-        
-        // Infer completed modules based on progress percentage
+    if (courseObj) {
+      // Check local storage progress first for immediate display & offline support
+      const localMap = getStoredProgressMap();
+      const localPercent = localMap[courseId];
+      if (localPercent !== undefined) {
+        const localProg = {
+          courseId,
+          userId: user?.id || 'user',
+          completedPercent: Number(localPercent),
+          lastAccessed: new Date().toISOString()
+        };
+        setProgress(localProg);
+        setPercentInput(Number(localPercent));
         if (courseObj.modules && courseObj.modules.length > 0) {
-          const count = Math.round((percent / 100) * courseObj.modules.length);
+          const count = Math.round((Number(localPercent) / 100) * courseObj.modules.length);
           setCompletedModules(Array.from({ length: count }, (_, i) => i));
         }
-      } catch (pErr) {
-        setProgress(null);
+      }
+
+      if (user?.id) {
+        try {
+          const prog = await getCourseProgress(user.id, courseId);
+          if (prog && prog.completedPercent !== undefined) {
+            setProgress(prog);
+            const percent = prog.completedPercent || 0;
+            setPercentInput(percent);
+            setStoredCourseProgress(courseId, percent);
+            if (courseObj.modules && courseObj.modules.length > 0) {
+              const count = Math.round((percent / 100) * courseObj.modules.length);
+              setCompletedModules(Array.from({ length: count }, (_, i) => i));
+            }
+          }
+        } catch (pErr) {
+          console.warn('API progress fetch warning:', pErr);
+        }
       }
     }
     setLoading(false);
@@ -95,33 +122,57 @@ const CourseDetailPage = () => {
   }, [courseId, user]);
 
   const handleEnroll = async () => {
-    if (!user?.id) return;
     setActionLoading(true);
     setError('');
     setMessage('');
 
     try {
-      try {
-        await enrollInCourse(courseId, user.id);
-        const newProg = await createProgress(user.id, courseId);
-        setProgress(newProg);
-        setPercentInput(newProg.completedPercent || 0);
-      } catch (apiErr) {
-        const fallbackProg = {
-          courseId,
-          userId: user.id,
-          completedPercent: 0,
-          lastAccessed: new Date().toISOString()
-        };
-        setProgress(fallbackProg);
-        setPercentInput(0);
+      if (user?.id) {
+        try {
+          await enrollInCourse(courseId, user.id);
+          await createProgress(user.id, courseId);
+        } catch (apiErr) {
+          console.warn('API Gateway enrollment fallback:', apiErr);
+        }
       }
 
-      const succMsg = 'Enrolled successfully in course workspace!';
+      const newProg = {
+        courseId,
+        userId: user?.id || 'user',
+        completedPercent: 0,
+        lastAccessed: new Date().toISOString()
+      };
+      setProgress(newProg);
+      setPercentInput(0);
+      setStoredCourseProgress(courseId, 0);
+
+      const succMsg = 'Enrolled successfully! Redirecting to Enrolled Courses...';
       setMessage(succMsg);
       addToast(succMsg, 'success', 'Enrollment Confirmed');
+
+      setTimeout(() => {
+        navigate('/dashboard?filter=ENROLLED');
+      }, 600);
     } catch (err) {
       console.error('Enrollment error:', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUnenroll = async () => {
+    if (!courseId) return;
+    setActionLoading(true);
+    try {
+      removeStoredCourseProgress(courseId);
+      setProgress(null);
+      setPercentInput(0);
+      setCompletedModules([]);
+      const msgText = `Unenrolled from "${course?.title || 'course'}"`;
+      setMessage(msgText);
+      addToast(msgText, 'info', 'Course Unenrolled');
+    } catch (err) {
+      console.error('Unenrollment error:', err);
     } finally {
       setActionLoading(false);
     }
@@ -143,30 +194,31 @@ const CourseDetailPage = () => {
     const calculatedPercent = Math.round((updated.length / course.modules.length) * 100);
     setPercentInput(calculatedPercent);
 
-    if (progress) {
-      await applyProgressUpdate(calculatedPercent);
-    }
+    await applyProgressUpdate(calculatedPercent);
   };
 
   // Core Progress Sync
   const applyProgressUpdate = async (targetPercent) => {
-    if (!user?.id) return;
     setActionLoading(true);
+    const numPercent = Number(targetPercent) || 0;
     try {
-      let updatedProg = null;
-      try {
-        updatedProg = await updateProgress(user.id, courseId, Number(targetPercent));
-      } catch (apiErr) {
-        updatedProg = {
-          courseId,
-          userId: user.id,
-          completedPercent: Number(targetPercent),
-          lastAccessed: new Date().toISOString()
-        };
+      if (user?.id) {
+        try {
+          await updateProgress(user.id, courseId, numPercent);
+        } catch (apiErr) {
+          console.warn('API progress sync warning:', apiErr);
+        }
       }
+      const updatedProg = {
+        courseId,
+        userId: user?.id || 'user',
+        completedPercent: numPercent,
+        lastAccessed: new Date().toISOString()
+      };
       setProgress(updatedProg);
-      setPercentInput(updatedProg.completedPercent);
-      addToast(`Progress updated to ${updatedProg.completedPercent}%!`, 'success', 'Progress Saved');
+      setPercentInput(numPercent);
+      setStoredCourseProgress(courseId, numPercent);
+      addToast(`Progress updated to ${numPercent}%!`, 'success', 'Progress Saved');
     } catch (err) {
       console.error('Progress sync error:', err);
     } finally {
@@ -278,16 +330,57 @@ const CourseDetailPage = () => {
         {/* Left Column: Hero & Interactive Workspace */}
         <div className="glass-card course-info-panel">
           <div className="course-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <span className={`badge ${badgeClass}`}>{course.category || 'AI Course'}</span>
+              {course.platform === 'Coursera' ? (
+                <span style={{ background: 'rgba(0, 86, 210, 0.18)', color: '#60a5fa', border: '1px solid rgba(0, 86, 210, 0.45)', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <Globe size={12} /> Coursera
+                </span>
+              ) : course.platform === 'edX' ? (
+                <span style={{ background: 'rgba(185, 28, 28, 0.18)', color: '#fca5a5', border: '1px solid rgba(185, 28, 28, 0.45)', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <Sparkles size={12} /> edX
+                </span>
+              ) : (
+                <span style={{ background: 'rgba(164, 53, 240, 0.18)', color: '#d1a8ff', border: '1px solid rgba(164, 53, 240, 0.45)', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <BookOpen size={12} /> Udemy
+                </span>
+              )}
+              {course.provider && (
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', background: 'rgba(255, 255, 255, 0.05)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                  {course.provider}
+                </span>
+              )}
               {course.rating && (
                 <span className="badge badge-secondary" style={{ color: '#fcd34d' }}>
                   <Star size={12} fill="#fcd34d" /> {course.rating}
                 </span>
               )}
             </div>
-            <h1>{course.title || course.name}</h1>
-            <p className="course-subtitle">{course.description}</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginTop: '8px', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '280px' }}>
+                <h1 style={{ margin: 0 }}>{course.title || course.name}</h1>
+                <p className="course-subtitle" style={{ marginTop: '8px' }}>{course.description}</p>
+              </div>
+              {(course.courseUrl || course.udemyUrl) && (
+                <a
+                  href={course.courseUrl || course.udemyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary"
+                  style={{
+                    color: course.platform === 'Coursera' ? '#60a5fa' : course.platform === 'edX' ? '#fca5a5' : '#d1a8ff',
+                    borderColor: course.platform === 'Coursera' ? 'rgba(0, 86, 210, 0.5)' : course.platform === 'edX' ? 'rgba(185, 28, 28, 0.5)' : 'rgba(164, 53, 240, 0.5)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    textDecoration: 'none'
+                  }}
+                >
+                  <ExternalLink size={16} />
+                  <span>View on {course.platform || 'Platform'} ↗</span>
+                </a>
+              )}
+            </div>
           </div>
 
           {/* Instructor & Meta Bar */}
@@ -299,6 +392,16 @@ const CourseDetailPage = () => {
                 {course.instructor || 'Dr. IntelliLearn'}
               </span>
             </div>
+
+            {course.students && (
+              <div className="info-item">
+                <span className="info-label">Udemy Students</span>
+                <span className="info-value" style={{ color: '#93c5fd' }}>
+                  <Users size={15} color="#93c5fd" />
+                  {course.students}
+                </span>
+              </div>
+            )}
 
             <div className="info-item">
               <span className="info-label">Duration</span>
@@ -323,11 +426,19 @@ const CourseDetailPage = () => {
           {/* 3. Interactive Workspace Navigation Tabs */}
           <div className="course-tabs-nav">
             <button
+              className={`tab-btn ${activeTab === 'OVERVIEW' ? 'active' : ''}`}
+              onClick={() => setActiveTab('OVERVIEW')}
+            >
+              <BookOpen size={16} />
+              Course Overview
+            </button>
+
+            <button
               className={`tab-btn ${activeTab === 'SYLLABUS' ? 'active' : ''}`}
               onClick={() => setActiveTab('SYLLABUS')}
             >
               <Layers size={16} />
-              Syllabus & Checklist ({completedModules.length}/{(course.modules || []).length})
+              Syllabus & Modules ({completedModules.length}/{(course.modules || []).length})
             </button>
 
             <button
@@ -343,9 +454,84 @@ const CourseDetailPage = () => {
               onClick={() => setActiveTab('RESOURCES')}
             >
               <FileText size={16} />
-              Resources & Lab Code
+              Resources & Code
             </button>
           </div>
+
+          {/* TAB 0: Rich Course Overview & Description */}
+          {activeTab === 'OVERVIEW' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {/* What You'll Learn Box */}
+              <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px' }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={20} color="var(--primary)" /> What You'll Learn
+                </h3>
+                {course.whatYouWillLearn && course.whatYouWillLearn.length > 0 ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                    {course.whatYouWillLearn.map((item, idx) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                        <CheckCircle2 size={16} color="var(--success)" style={{ flexShrink: 0, marginTop: '3px' }} />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                    {course.description}
+                  </div>
+                )}
+              </div>
+
+              {/* Full Description Section */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Full Course Description</h3>
+                <div style={{ fontSize: '0.92rem', color: 'var(--text-muted)', lineHeight: '1.7', whiteSpace: 'pre-line' }}>
+                  {course.fullDescription || course.description}
+                </div>
+              </div>
+
+              {/* Requirements & Target Audience Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+                {/* Requirements */}
+                <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '16px' }}>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '10px', color: 'var(--text-main)' }}>
+                    Requirements & Prerequisites
+                  </h4>
+                  <ul style={{ paddingLeft: '20px', margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {(course.requirements || [course.prerequisites || 'Basic Programming knowledge']).map((req, i) => (
+                      <li key={i}>{req}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Target Audience */}
+                <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '16px' }}>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '10px', color: 'var(--text-main)' }}>
+                    Who This Course Is For
+                  </h4>
+                  <ul style={{ paddingLeft: '20px', margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {(course.targetAudience || ['Anyone looking to master Artificial Intelligence and Machine Learning']).map((aud, i) => (
+                      <li key={i}>{aud}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Instructor Bio Box */}
+              <div style={{ background: 'rgba(164, 53, 240, 0.06)', border: '1px solid rgba(164, 53, 240, 0.25)', borderRadius: '12px', padding: '18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                  <User size={20} color="#d1a8ff" />
+                  <div>
+                    <h4 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: '#d1a8ff' }}>Instructor Profile</h4>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>{course.instructor}</span>
+                  </div>
+                </div>
+                <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', margin: 0, lineHeight: '1.6' }}>
+                  {course.instructorBio || `${course.instructor} is a top-rated instructor on Udemy specializing in AI, Machine Learning, and Software Engineering.`}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* TAB 1: Interactive Syllabus Checklist */}
           {activeTab === 'SYLLABUS' && (
@@ -601,6 +787,18 @@ const CourseDetailPage = () => {
                   {progress.completedPercent === 100 ? 'Congratulations! You completed this course.' : 'Reach 100% completion to unlock your certificate.'}
                 </div>
               </div>
+
+              {/* Unenroll Course Action */}
+              <button
+                type="button"
+                onClick={handleUnenroll}
+                className="btn btn-secondary btn-block"
+                style={{ color: '#fca5a5', borderColor: 'rgba(239, 68, 68, 0.4)', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                disabled={actionLoading}
+              >
+                <Trash2 size={15} />
+                <span>Unenroll / Remove Course</span>
+              </button>
             </div>
           )}
         </div>
