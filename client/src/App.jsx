@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+import ToastContainer from './components/ToastContainer';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -15,28 +17,31 @@ import './index.css';
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <div className="app-container">
-          <Navbar />
-          <main className="main-content">
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+      <ToastProvider>
+        <Router>
+          <div className="app-container">
+            <Navbar />
+            <ToastContainer />
+            <main className="main-content">
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
 
-              {/* Protected Routes */}
-              <Route element={<ProtectedRoute />}>
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/courses/:id" element={<CourseDetailPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
-              </Route>
+                {/* Protected Routes */}
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/courses/:id" element={<CourseDetailPage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
+                </Route>
 
-              {/* Fallback Route */}
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
-          </main>
-        </div>
-      </Router>
+                {/* Fallback Route */}
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              </Routes>
+            </main>
+          </div>
+        </Router>
+      </ToastProvider>
     </AuthProvider>
   );
 }
