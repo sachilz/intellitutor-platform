@@ -16,9 +16,7 @@ import java.util.List;
 
 /**
  * A quiz (assessment) in the IntelliLearn platform. A quiz owns an ordered
- * list of {@link Question}s. Questions are persisted through the {@code quiz}
- * relationship ({@link CascadeType#ALL} + orphan removal), so saving a quiz
- * saves its questions automatically.
+ * list of {@link Question}s.
  */
 @Entity
 @Table(name = "quizzes")
@@ -34,8 +32,9 @@ public class Quiz {
     @Column(length = 1000)
     private String description;
 
-    // EAGER so the questions (and their options) are always loaded when a quiz
-    // is fetched - safe at this scale and keeps JSON serialisation simple.
+    @Column(name = "course_id", length = 100)
+    private String courseId;
+
     @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @OrderBy("id ASC")
     private List<Question> questions = new ArrayList<>();
@@ -74,6 +73,14 @@ public class Quiz {
         this.description = description;
     }
 
+    public String getCourseId() {
+        return courseId;
+    }
+
+    public void setCourseId(String courseId) {
+        this.courseId = courseId;
+    }
+
     public List<Question> getQuestions() {
         return questions;
     }
@@ -99,6 +106,7 @@ public class Quiz {
         private Long id;
         private String title;
         private String description;
+        private String courseId;
         private List<Question> questions = new ArrayList<>();
 
         public QuizBuilder id(Long id) {
@@ -116,13 +124,20 @@ public class Quiz {
             return this;
         }
 
+        public QuizBuilder courseId(String courseId) {
+            this.courseId = courseId;
+            return this;
+        }
+
         public QuizBuilder questions(List<Question> questions) {
             this.questions = questions;
             return this;
         }
 
         public Quiz build() {
-            return new Quiz(id, title, description, questions);
+            Quiz quiz = new Quiz(id, title, description, questions);
+            quiz.setCourseId(courseId);
+            return quiz;
         }
     }
 }

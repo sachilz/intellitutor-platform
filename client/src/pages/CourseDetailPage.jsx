@@ -6,6 +6,7 @@ import { getCourseById, enrollInCourse } from '../api/courseApi';
 import { getCourseProgress, createProgress, updateProgress } from '../api/progressApi';
 import { askTutor } from '../api/tutorApi';
 import QuizComponent from '../components/QuizComponent';
+import AiChatbotComponent from '../components/AiChatbotComponent';
 import { CourseDetailSkeleton } from '../components/SkeletonLoader';
 import { CURATED_COURSES, getCategoryBadgeClass } from '../data/coursesCatalog';
 import { getStoredProgressMap, setStoredCourseProgress, removeStoredCourseProgress } from '../utils/progressStorage';
@@ -738,113 +739,13 @@ const CourseDetailPage = () => {
 
           {/* TAB: AI TUTOR */}
           {activeTab === 'AI_TUTOR' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', animation: 'cdpFadeIn 0.3s ease' }}>
-              <div style={{
-                padding: '24px', borderRadius: '18px',
-                background: 'rgba(99,102,241,0.04)', border: '1px solid rgba(99,102,241,0.12)',
-              }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Bot size={18} color="#818cf8" /> AI Tutor for {course.title}
-                </h3>
-                <p style={{ fontSize: '0.82rem', color: '#64748b', margin: 0 }}>
-                  Ask questions about course concepts, get practice quizzes, or request summaries.
-                </p>
-              </div>
-
-              {/* Suggested prompts */}
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {[
-                  { text: 'Explain Module 1', icon: Zap },
-                  { text: 'Key concepts summary', icon: Sparkles },
-                  { text: 'Practice quiz', icon: FileText },
-                  { text: 'Study tips', icon: BarChart3 },
-                ].map((chip, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleAskAi(chip.text)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '6px',
-                      padding: '8px 14px', borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-                      color: '#94a3b8', fontSize: '0.78rem', fontWeight: 600,
-                      cursor: 'pointer', transition: 'all 0.15s ease',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = `${colors.accent}30`; e.currentTarget.style.color = colors.accent; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#94a3b8'; }}
-                  >
-                    <chip.icon size={13} /> {chip.text}
-                  </button>
-                ))}
-              </div>
-
-              {/* Chat messages */}
-              <div style={{
-                padding: '20px', borderRadius: '16px',
-                background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
-                minHeight: '200px', maxHeight: '400px', overflowY: 'auto',
-                display: 'flex', flexDirection: 'column', gap: '12px',
-              }}>
-                {aiMessages.length === 0 && !aiThinking && (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', color: '#475569', textAlign: 'center' }}>
-                    <Bot size={36} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                    <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>No messages yet</div>
-                    <div style={{ fontSize: '0.78rem', marginTop: '4px' }}>Ask a question or click a suggestion above to start</div>
-                  </div>
-                )}
-
-                {aiMessages.map((msg, i) => (
-                  <div key={i} style={{
-                    alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
-                    maxWidth: '85%', padding: '12px 16px', borderRadius: '14px',
-                    background: msg.sender === 'user'
-                      ? `linear-gradient(135deg, ${colors.accent}, ${colors.accent}cc)`
-                      : 'rgba(255,255,255,0.04)',
-                    border: msg.sender === 'user' ? 'none' : '1px solid rgba(255,255,255,0.06)',
-                    color: msg.sender === 'user' ? '#fff' : '#cbd5e1',
-                    fontSize: '0.85rem', lineHeight: 1.6, whiteSpace: 'pre-line',
-                    animation: 'cdpSlideRight 0.3s ease',
-                  }}>
-                    {msg.sender === 'ai' && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#818cf8', marginBottom: '6px' }}>
-                        <Bot size={12} /> AI Tutor
-                      </div>
-                    )}
-                    {msg.text}
-                  </div>
-                ))}
-
-                {aiThinking && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', borderRadius: '14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', alignSelf: 'flex-start', color: '#818cf8', fontSize: '0.82rem' }}>
-                    <span className="spinner" style={{ width: '14px', height: '14px' }}></span> Thinking...
-                  </div>
-                )}
-              </div>
-
-              {/* Input */}
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Ask anything about this course..."
-                  value={aiQuestion}
-                  onChange={(e) => setAiQuestion(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAskAi()}
-                  style={{ borderRadius: '12px' }}
-                />
-                <button
-                  onClick={() => handleAskAi()}
-                  disabled={aiThinking || !aiQuestion.trim()}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    width: '48px', height: '48px', borderRadius: '12px', border: 'none',
-                    background: colors.gradient, color: '#fff', cursor: 'pointer',
-                    transition: 'all 0.15s ease', flexShrink: 0,
-                    opacity: aiThinking || !aiQuestion.trim() ? 0.5 : 1,
-                  }}
-                >
-                  <Send size={18} />
-                </button>
-              </div>
+            <div style={{ animation: 'cdpFadeIn 0.3s ease' }}>
+              <AiChatbotComponent
+                courseId={course?.id || courseId}
+                courseTitle={course?.title}
+                courseCategory={course?.category}
+                userId={user?.email || user?.username || 'student1@intellilearn.com'}
+              />
             </div>
           )}
 

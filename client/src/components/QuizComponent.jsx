@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getQuizzes, submitQuiz, getQuizAttempts } from '../api/quizApi';
+import { getQuizzes, getQuizzesByCourse, submitQuiz, getQuizAttempts } from '../api/quizApi';
 import { useAuth } from '../context/AuthContext';
 import { CheckCircle, AlertCircle, Award, RotateCcw, Clock, BookOpen } from 'lucide-react';
 
@@ -24,7 +24,13 @@ export default function QuizComponent({ courseId }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await getQuizzes();
+      let data;
+      if (courseId && courseId !== 'general') {
+        data = await getQuizzesByCourse(courseId);
+      } else {
+        data = await getQuizzes();
+      }
+
       if (Array.isArray(data) && data.length > 0) {
         setQuizzes(data);
         setSelectedQuiz(data[0]);
@@ -33,8 +39,21 @@ export default function QuizComponent({ courseId }) {
         setQuizzes([]);
       }
     } catch (err) {
-      console.error('Failed to load quizzes:', err);
-      setError('Could not connect to Quiz Service. Please ensure API Gateway and Quiz microservice are running.');
+      console.warn('Failed to load quizzes:', err);
+      const status = err.response?.status;
+      if (status === 401) {
+        setError('Your session has expired or requires authentication. Please sign in again.');
+      } else if (status === 403) {
+        setError('You do not have permission to access these quiz materials.');
+      } else if (status === 404) {
+        setQuizzes([]);
+      } else if (status === 429) {
+        setError('Too many requests to the Gateway. Please wait a moment and try again.');
+      } else if (status >= 500) {
+        setError('Quiz & Assessment service is temporarily unavailable.');
+      } else {
+        setError('Unable to reach IntelliTutor quiz service right now. Please verify service connection.');
+      }
     } finally {
       setLoading(false);
     }
@@ -109,7 +128,7 @@ export default function QuizComponent({ courseId }) {
       <div style={{ padding: '1.5rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '12px', color: '#fca5a5' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, marginBottom: '8px' }}>
           <AlertCircle size={20} />
-          <span>Quiz Connection Diagnostic</span>
+          <span>Quiz Service Notice</span>
         </div>
         <p style={{ fontSize: '0.9rem', margin: 0 }}>{error}</p>
       </div>
@@ -118,8 +137,9 @@ export default function QuizComponent({ courseId }) {
 
   if (quizzes.length === 0) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
-        <p>No quizzes currently available for this module.</p>
+      <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <BookOpen size={28} style={{ opacity: 0.4, marginBottom: '8px' }} />
+        <p style={{ margin: 0, fontWeight: 500 }}>No practice quizzes currently assigned for this course.</p>
       </div>
     );
   }

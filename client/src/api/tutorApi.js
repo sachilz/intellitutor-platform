@@ -20,11 +20,13 @@ export const saveAiConfig = (config) => {
   }
 };
 
-export const sendChatMessage = async (message, sessionId, courseId, userId) => {
+export const sendChatMessage = async (message, sessionId, courseId, userId, courseTitle, courseCategory) => {
   const response = await axiosInstance.post('/api/tutor/chat', {
     message,
     sessionId,
     courseId,
+    courseTitle,
+    courseCategory,
     userId,
   });
   return response.data;

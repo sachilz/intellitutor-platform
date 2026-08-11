@@ -20,14 +20,10 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Business logic for quizzes and assessments.
- */
 @Service
 public class QuizService implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(QuizService.class);
-
     public static final String ADMIN_ROLE = "ADMIN";
 
     private final QuizRepository quizRepository;
@@ -47,9 +43,17 @@ public class QuizService implements CommandLineRunner {
                 .orElseThrow(() -> new QuizNotFoundException(id));
     }
 
-    /**
-     * Creates a quiz (including its nested questions).
-     */
+    public List<Quiz> getQuizzesByCourse(String courseId) {
+        if (courseId == null || courseId.isBlank() || "general".equalsIgnoreCase(courseId)) {
+            return getAllQuizzes();
+        }
+        List<Quiz> matches = quizRepository.findByCourseId(courseId);
+        if (!matches.isEmpty()) {
+            return matches;
+        }
+        return getAllQuizzes();
+    }
+
     @Transactional
     public Quiz createQuiz(Quiz quiz, String userRole) {
         requireAdmin(userRole);
@@ -86,10 +90,6 @@ public class QuizService implements CommandLineRunner {
         return quizRepository.save(quiz);
     }
 
-    /**
-     * Evaluates a quiz attempt: compares each submitted option index with the
-     * correct one, computes score, builds feedback, and PERSISTS the attempt to MongoDB.
-     */
     public AssessmentResultDto submitQuiz(Long quizId, QuizSubmissionDto submission) {
         if (submission == null) {
             throw new InvalidSubmissionException("Request body is required");
@@ -121,7 +121,6 @@ public class QuizService implements CommandLineRunner {
         String userId = (submission.userId() != null && !submission.userId().isBlank()) 
                 ? submission.userId() : "student1@intellilearn.com";
 
-        // PERSIST QUIZ ATTEMPT TO MONGODB
         try {
             QuizAttempt attempt = QuizAttempt.builder()
                     .quizId(String.valueOf(quizId))
@@ -177,34 +176,74 @@ public class QuizService implements CommandLineRunner {
         if (quizRepository.count() > 0) {
             return;
         }
-        log.info("Seeding 2 sample quizzes...");
+        log.info("Seeding course-aware quizzes...");
 
+        // 1. IBM Data Science Quiz
+        Quiz dsQuiz = Quiz.builder()
+                .title("IBM Data Science & SQL Assessment")
+                .description("Evaluate your knowledge of Python, Data Wrangling with Pandas, and SQL querying.")
+                .courseId("c_coursera_5")
+                .build();
+        dsQuiz.addQuestion(question("Which Python library is primarily used for Data Analysis and DataFrame manipulation?",
+                List.of("Pandas", "Flask", "Django", "PyGame"), 0));
+        dsQuiz.addQuestion(question("Which SQL clause is used to filter records from a database table?",
+                List.of("SELECT", "WHERE", "ORDER BY", "GROUP BY"), 1));
+        dsQuiz.addQuestion(question("What is the primary function of Jupyter Notebooks in Data Science?",
+                List.of("Interactive code, visualization & documentation execution", "Compiling C++ binaries", "Database administration", "Web server routing"), 0));
+
+        // 2. AI For Everyone Quiz
+        Quiz aiQuiz = Quiz.builder()
+                .title("AI & Machine Learning Foundations")
+                .description("Test your understanding of AI terminology, Machine Learning workflows, and ethical considerations.")
+                .courseId("c_coursera_1")
+                .build();
+        aiQuiz.addQuestion(question("Which of the following describes Supervised Machine Learning?",
+                List.of("Training a model on labeled input-output data pairs", "Executing un-labelled clustering", "Compiling Java bytecode", "Manual SQL data entry"), 0));
+        aiQuiz.addQuestion(question("What is Deep Learning primarily based on?",
+                List.of("Relational SQL tables", "Artificial Neural Networks with multiple layers", "Linear decision trees", "Regex pattern matching"), 1));
+
+        // 3. Google Cybersecurity Quiz
+        Quiz secQuiz = Quiz.builder()
+                .title("Cybersecurity & Network Defense Assessment")
+                .description("Validate your understanding of SIEM tools, Linux command line, and threat analysis.")
+                .courseId("c_coursera_6")
+                .build();
+        secQuiz.addQuestion(question("What does SIEM stand for in Cybersecurity?",
+                List.of("System Interface for Ethernet Messaging", "Security Information and Event Management", "Software Integration and Encryption Method", "Simple Protocol for Enterprise Management"), 1));
+        secQuiz.addQuestion(question("Which Linux command is used to inspect network socket connections?",
+                List.of("netstat / ss", "mkdir", "cat", "chmod"), 0));
+
+        // 4. Java Fundamentals Quiz
         Quiz javaQuiz = Quiz.builder()
-                .title("Java Fundamentals")
-                .description("Core Java concepts: classes, primitives and the entry point of a program.")
+                .title("Java Fundamentals Assessment")
+                .description("Core Java concepts: classes, primitives, inheritance and program entry points.")
+                .courseId("java-101")
                 .build();
         javaQuiz.addQuestion(question("Which keyword is used to declare a class in Java?",
                 List.of("class", "struct", "type", "object"), 0));
         javaQuiz.addQuestion(question("Which of the following is a valid Java primitive type?",
                 List.of("String", "int", "Integer", "ArrayList"), 1));
-        javaQuiz.addQuestion(question("What is the signature of the entry point of a Java application?",
-                List.of("public static void run()", "public void main(String[] args)",
-                        "public static void main(String[] args)", "static int main(String[] args)"), 2));
+        javaQuiz.addQuestion(question("What is the signature of the main entry point in Java?",
+                List.of("public static void run()", "public void main(String[] args)", "public static void main(String[] args)", "static int main(String[] args)"), 2));
 
+        // 5. Spring Boot Basics Quiz
         Quiz bootQuiz = Quiz.builder()
-                .title("Spring Boot Basics")
-                .description("Annotations, embedded servers and configuration of a Spring Boot application.")
+                .title("Spring Boot & Microservices Assessment")
+                .description("Annotations, embedded servers, auto-configuration and Spring Cloud Gateway.")
+                .courseId("spring-boot")
                 .build();
         bootQuiz.addQuestion(question("Which annotation marks a class as a Spring configuration class?",
                 List.of("@Configuration", "@ComponentScan", "@Bean", "@Autowired"), 0));
-        bootQuiz.addQuestion(question("Which embedded HTTP server does Spring Boot use by default for web applications?",
+        bootQuiz.addQuestion(question("Which embedded HTTP server does Spring Boot use by default?",
                 List.of("Jetty", "Tomcat", "Undertow", "Netty"), 1));
-        bootQuiz.addQuestion(question("Which Spring Boot property sets the port the HTTP server listens on?",
-                List.of("server.port", "spring.port", "http.port", "application.port"), 0));
 
+        quizRepository.save(dsQuiz);
+        quizRepository.save(aiQuiz);
+        quizRepository.save(secQuiz);
         quizRepository.save(javaQuiz);
         quizRepository.save(bootQuiz);
-        log.info("Sample quizzes seeded: '{}' (id=1) and '{}' (id=2)", javaQuiz.getTitle(), bootQuiz.getTitle());
+
+        log.info("Successfully seeded course-aware quizzes for IBM Data Science, AI For Everyone, Cybersecurity, Java, and Spring Boot!");
     }
 
     private Question question(String text, List<String> options, int correctIndex) {
