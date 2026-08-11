@@ -17,6 +17,10 @@ public class ProgressService {
         this.progressRepository = progressRepository;
     }
 
+    public List<Progress> getAllProgress() {
+        return progressRepository.findAll();
+    }
+
     public Progress createProgress(String userId, String courseId) {
         Progress progress = progressRepository.findByUserIdAndCourseId(userId, courseId)
                 .orElse(new Progress());

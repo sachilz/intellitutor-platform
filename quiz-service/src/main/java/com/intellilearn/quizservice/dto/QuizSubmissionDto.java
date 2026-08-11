@@ -8,11 +8,7 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 /**
- * Request body for {@code POST /api/quizzes/{id}/submit}. Contains one 0-based
- * option index per question, in the same order the questions are returned by
- * the API.
- *
- * @param selectedOptions selected option index (0-based) for each question
+ * Request body for {@code POST /api/quizzes/{id}/submit}.
  */
 public record QuizSubmissionDto(
         @Schema(description = "0-based index of the selected option for each question, in the order questions are returned by the API",
@@ -20,5 +16,9 @@ public record QuizSubmissionDto(
         @NotNull(message = "selectedOptions is required")
         @Size(min = 1, message = "At least one answer is required")
         List<@NotNull(message = "Each answer index must not be null")
-             @Min(value = 0, message = "Answer index must be 0 or greater") Integer> selectedOptions) {
+             @Min(value = 0, message = "Answer index must be 0 or greater") Integer> selectedOptions,
+
+        @Schema(description = "Optional user identifier submitting the quiz", example = "student1@intellilearn.com")
+        String userId
+) {
 }

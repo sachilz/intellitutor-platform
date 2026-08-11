@@ -45,6 +45,7 @@ spring:
             - Path=/api/users/**
           filters:
             - StripPrefix=1
+            - AddRequestHeader=X-API-KEY, ${USER_SERVICE_API_KEY:user-service-secret-key-123}
             - name: RequestRateLimiter
               args:
                 redis-rate-limiter.replenishRate: 5
@@ -57,6 +58,7 @@ spring:
             - Path=/api/auth/**
           filters:
             - StripPrefix=1
+            - AddRequestHeader=X-API-KEY, ${USER_SERVICE_API_KEY:user-service-secret-key-123}
             - name: RequestRateLimiter
               args:
                 redis-rate-limiter.replenishRate: 5
@@ -69,9 +71,48 @@ spring:
             - Path=/api/courses/**
           filters:
             - StripPrefix=1
+            - AddRequestHeader=X-API-KEY, ${COURSE_SERVICE_API_KEY:course-service-secret-key-456}
             - name: RequestRateLimiter
               args:
                 redis-rate-limiter.replenishRate: 5
                 redis-rate-limiter.burstCapacity: 10
                 key-resolver: "#{@ipKeyResolver}"
 
+        - id: quiz-service
+          uri: ${QUIZ_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/quizzes/**
+          filters:
+            - StripPrefix=1
+            - AddRequestHeader=X-API-KEY, ${QUIZ_SERVICE_API_KEY:quiz-service-secret-key-101}
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 10
+                key-resolver: "#{@ipKeyResolver}"
+
+        - id: progress-service
+          uri: ${PROGRESS_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/progress/**
+          filters:
+            - StripPrefix=1
+            - AddRequestHeader=X-API-KEY, ${PROGRESS_SERVICE_API_KEY:progress-service-secret-key-789}
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 10
+                key-resolver: "#{@ipKeyResolver}"
+
+        - id: tutor-service
+          uri: ${TUTOR_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/tutor/**
+          filters:
+            - StripPrefix=1
+            - AddRequestHeader=X-API-KEY, ${TUTOR_SERVICE_API_KEY:tutor-service-secret-key-999}
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 10
+                key-resolver: "#{@ipKeyResolver}"

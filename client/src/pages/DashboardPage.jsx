@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getCourses, enrollInCourse } from '../api/courseApi';
 import { getUserProgress, updateProgress, createProgress } from '../api/progressApi';
+import { askTutor } from '../api/tutorApi';
 import { CourseGridSkeleton } from '../components/SkeletonLoader';
 import { CURATED_COURSES, getCategoryBadgeClass } from '../data/coursesCatalog';
 import { getStoredProgressMap, saveStoredProgressMap, setStoredCourseProgress, removeStoredCourseProgress } from '../utils/progressStorage';
@@ -360,7 +361,7 @@ const DashboardPage = () => {
   };
 
   // AI Assistant Sandbox Terminal Handler
-  const handleAiSandboxPrompt = (promptText) => {
+  const handleAiSandboxPrompt = async (promptText) => {
     const q = promptText || aiSandboxPrompt;
     if (!q.trim()) return;
 
@@ -368,57 +369,41 @@ const DashboardPage = () => {
     setAiSandboxLoading(true);
     setAiSandboxResponse(null);
 
-    setTimeout(() => {
-      setAiSandboxLoading(false);
-      let res = '';
-      const lower = q.toLowerCase();
-
-      if (lower.includes('recommend') || lower.includes('goal')) {
-        res = `🤖 **AI Tutor Recommendation**:
-Based on market demand and your current active learning stats:
-1. **Generative AI & LLM Engineering** by Dr. Andrew Ng (Top Rated)
-2. **Machine Learning Foundations** (Best for core mathematical foundations)
-3. **Full-Stack React & Next.js Masterclass** (Great for building AI apps)`;
-      } else if (lower.includes('skill') || lower.includes('demand')) {
-        res = `⚡ **Top In-Demand AI Skills for 2026**:
-• **Transformer Architectures & RAG Pipeline Design**
-• **PyTorch & Deep Neural Network Optimization**
-• **Multi-Agent Orchestration & LangChain/LangGraph**
-• **Full-Stack Next.js AI SDK Integration**`;
-      } else if (lower.includes('roadmap') || lower.includes('path') || lower.includes('progress')) {
-        res = `🔥 **Your Personalized Learning Roadmap**:
-You currently have **${enrolledCount} active enrolled courses** with an average completion rate of **${avgProgress}%**.
-Complete your enrolled modules to unlock your **Verified AI Certifications**!`;
-      } else if (lower.includes('transformer') || lower.includes('explain')) {
-        res = `💡 **AI Core Concept Breakdown**:
-Transformers rely on **Self-Attention mechanisms** to weigh the importance of input tokens regardless of distance in sequence. Key building blocks include Multi-Head Attention, Feedforward Neural Networks, and Positional Embeddings. Check out our **NLP with Transformers** course below!`;
-      } else {
-        res = `🤖 **AI Tutor Response**:
-"${q}" is a great topic to explore! We have ${courses.length} specialized AI & Engineering courses in our catalog below to help you master this step by step.`;
+    try {
+      const userId = user?.email || user?.username || 'student1@intellilearn.com';
+      const res = await askTutor('general', q, userId);
+      let output = res.answer;
+      if (res.sources && res.sources.length > 0) {
+        output += `\n\n📌 **Sources:** ${res.sources.join(', ')}`;
       }
-
-      setAiSandboxResponse(res);
-    }, 600);
+      setAiSandboxResponse(output);
+    } catch (err) {
+      console.warn('RAG API offline, using fallback response:', err);
+      setAiSandboxResponse(`🤖 **AI Tutor Response**: "${q}" is an important learning concept. Ask about polymorphism, Spring Boot, or microservices for grounded retrieval answers!`);
+    } finally {
+      setAiSandboxLoading(false);
+    }
   };
 
   // Floating FAB AI Chat Handler
-  const handleSendFabMessage = () => {
+  const handleSendFabMessage = async () => {
     if (!fabPrompt.trim()) return;
     const userMsg = { sender: 'user', text: fabPrompt };
     setFabMessages((prev) => [...prev, userMsg]);
     const currentQ = fabPrompt;
     setFabPrompt('');
 
-    setTimeout(() => {
-      let aiText = `I analyzed your request about "${currentQ}". You can search our ${courses.length} courses or click "Recommend Course" in the top hero terminal for instant guidance!`;
-      const lower = currentQ.toLowerCase();
-      if (lower.includes('hi') || lower.includes('hello')) {
-        aiText = `Hello ${user?.username || 'Learner'}! How can I assist your AI learning journey today?`;
-      } else if (lower.includes('certificate') || lower.includes('cert')) {
-        aiText = `You earn a shareable Verified Certificate as soon as you reach 100% progress on any enrolled course!`;
+    try {
+      const userId = user?.email || user?.username || 'student1@intellilearn.com';
+      const res = await askTutor('general', currentQ, userId);
+      let reply = res.answer;
+      if (res.sources && res.sources.length > 0) {
+        reply += ` (Sources: ${res.sources.join(', ')})`;
       }
-      setFabMessages((prev) => [...prev, { sender: 'ai', text: aiText }]);
-    }, 500);
+      setFabMessages((prev) => [...prev, { sender: 'ai', text: reply }]);
+    } catch (err) {
+      setFabMessages((prev) => [...prev, { sender: 'ai', text: `I analyzed your request about "${currentQ}". Check out our courses or ask about Java/Spring concepts!` }]);
+    }
   };
 
   // Dynamic Greeting based on time

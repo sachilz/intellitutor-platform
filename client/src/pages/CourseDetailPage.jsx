@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getCourseById, enrollInCourse } from '../api/courseApi';
 import { getCourseProgress, createProgress, updateProgress } from '../api/progressApi';
+import { askTutor } from '../api/tutorApi';
+import QuizComponent from '../components/QuizComponent';
 import { CourseDetailSkeleton } from '../components/SkeletonLoader';
 import { CURATED_COURSES, getCategoryBadgeClass } from '../data/coursesCatalog';
 import { getStoredProgressMap, setStoredCourseProgress, removeStoredCourseProgress } from '../utils/progressStorage';
@@ -254,8 +256,8 @@ const CourseDetailPage = () => {
     applyProgressUpdate(presetValue);
   };
 
-  // AI Tutor Interactive Prompt Handler
-  const handleAskAi = (queryText) => {
+  // AI Tutor Interactive Prompt Handler (RAG API Integration)
+  const handleAskAi = async (queryText) => {
     const q = queryText || aiQuestion;
     if (!q.trim()) return;
 
@@ -263,23 +265,31 @@ const CourseDetailPage = () => {
     setAiQuestion('');
     setAiThinking(true);
 
-    setTimeout(() => {
-      setAiThinking(false);
-      let responseText = '';
-      const lower = q.toLowerCase();
+    try {
+      const targetCourseId = course?.id || id || 'java-101';
+      const userId = user?.email || user?.username || 'student1@intellilearn.com';
+      const res = await askTutor(targetCourseId, q, userId);
 
-      if (lower.includes('supervised') || lower.includes('module 1')) {
-        responseText = `Supervised learning trains models on labeled input-output pairs. In Module 1 of "${course?.title}", you learn how algorithms map features to target labels with loss minimization. This is one of the foundational concepts you'll apply throughout the course.`;
-      } else if (lower.includes('quiz') || lower.includes('exam')) {
-        responseText = `Here's a practice question:\n\n**Q:** What is the key difference between overfitting and underfitting?\n\n**Hint:** Overfitting has low training error but high validation error. Underfitting has high error on both.\n\nTry to answer before checking the solution!`;
-      } else if (lower.includes('key concept') || lower.includes('summary')) {
-        responseText = `Key concepts in ${course?.title}:\n\n1. 📊 Hands-on feature transformation\n2. 📉 Optimizing loss functions & gradient descent\n3. ✅ Cross-validation evaluation\n4. 🧠 Model selection & hyperparameter tuning`;
-      } else {
-        responseText = `"${q}" is a great topic within ${course?.title || 'this course'}. I recommend exploring Module ${completedModules.length + 1 || 1} for step-by-step walkthroughs and interactive exercises on this concept.`;
+      let formattedAnswer = res.answer;
+      if (res.sources && res.sources.length > 0) {
+        formattedAnswer += `\n\n📌 Sources: ${res.sources.join(', ')}`;
       }
-
-      setAiMessages(prev => [...prev, { sender: 'ai', text: responseText }]);
-    }, 800);
+      setAiMessages(prev => [...prev, {
+        sender: 'ai',
+        text: formattedAnswer,
+        grounded: res.grounded,
+        sources: res.sources
+      }]);
+    } catch (err) {
+      console.warn('Backend RAG API offline, using fallback:', err);
+      setAiMessages(prev => [...prev, {
+        sender: 'ai',
+        text: `Regarding "${course?.title || 'this course'}": ${q} is an important concept. Try asking about polymorphism, Spring Boot, or microservices architecture!`,
+        grounded: false
+      }]);
+    } finally {
+      setAiThinking(false);
+    }
   };
 
   if (loading) {
@@ -325,6 +335,7 @@ const CourseDetailPage = () => {
   const tabs = [
     { id: 'OVERVIEW', label: 'Overview', icon: BookOpen },
     { id: 'SYLLABUS', label: 'Curriculum', icon: Layers, count: `${completedModules.length}/${(course.modules || []).length}` },
+    { id: 'QUIZZES', label: 'Quizzes & Practice', icon: Award },
     { id: 'AI_TUTOR', label: 'AI Tutor', icon: Bot },
     { id: 'RESOURCES', label: 'Resources', icon: FileText },
   ];
@@ -715,6 +726,13 @@ const CourseDetailPage = () => {
                   No syllabus modules available for this course yet.
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB: QUIZZES */}
+          {activeTab === 'QUIZZES' && (
+            <div style={{ animation: 'cdpFadeIn 0.3s ease' }}>
+              <QuizComponent courseId={course?.id || id} />
             </div>
           )}
 

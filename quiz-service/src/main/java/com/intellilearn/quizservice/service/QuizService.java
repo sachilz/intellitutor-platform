@@ -4,9 +4,11 @@ import com.intellilearn.quizservice.dto.AssessmentResultDto;
 import com.intellilearn.quizservice.dto.QuizSubmissionDto;
 import com.intellilearn.quizservice.entity.Question;
 import com.intellilearn.quizservice.entity.Quiz;
+import com.intellilearn.quizservice.entity.QuizAttempt;
 import com.intellilearn.quizservice.exception.ForbiddenException;
 import com.intellilearn.quizservice.exception.InvalidSubmissionException;
 import com.intellilearn.quizservice.exception.QuizNotFoundException;
+import com.intellilearn.quizservice.repository.QuizAttemptRepository;
 import com.intellilearn.quizservice.repository.QuizRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,14 +16,12 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Business logic for quizzes and assessments.
- *
- * <p>Implements {@link CommandLineRunner} so that two sample quizzes are
- * pre-loaded on startup, which makes the service easy to test immediately.</p>
  */
 @Service
 public class QuizService implements CommandLineRunner {
@@ -31,9 +31,11 @@ public class QuizService implements CommandLineRunner {
     public static final String ADMIN_ROLE = "ADMIN";
 
     private final QuizRepository quizRepository;
+    private final QuizAttemptRepository quizAttemptRepository;
 
-    public QuizService(QuizRepository quizRepository) {
+    public QuizService(QuizRepository quizRepository, QuizAttemptRepository quizAttemptRepository) {
         this.quizRepository = quizRepository;
+        this.quizAttemptRepository = quizAttemptRepository;
     }
 
     public List<Quiz> getAllQuizzes() {
@@ -46,9 +48,7 @@ public class QuizService implements CommandLineRunner {
     }
 
     /**
-     * Creates a quiz (including its nested questions). Restricted to callers
-     * carrying {@code X-User-Role: ADMIN} — this is a light service-level guard;
-     * the API Gateway is responsible for the authoritative role check.
+     * Creates a quiz (including its nested questions).
      */
     @Transactional
     public Quiz createQuiz(Quiz quiz, String userRole) {
@@ -64,12 +64,10 @@ public class QuizService implements CommandLineRunner {
             throw new InvalidSubmissionException("A quiz must contain at least one question");
         }
 
-        // A POST is always an INSERT: ignore any client-supplied ids so they
-        // can never overwrite or collide with existing rows.
         quiz.setId(null);
 
         quiz.getQuestions().forEach(q -> {
-            q.setId(null); // nested questions get fresh ids too
+            q.setId(null);
             if (q.getText() == null || q.getText().isBlank()) {
                 throw new InvalidSubmissionException("Every question needs a text");
             }
@@ -82,7 +80,7 @@ public class QuizService implements CommandLineRunner {
             if (q.getCorrectOptionIndex() < 0 || q.getCorrectOptionIndex() >= q.getOptions().size()) {
                 throw new InvalidSubmissionException("correctOptionIndex must point to a valid option");
             }
-            q.setQuiz(quiz); // wire the back-reference so the cascade can persist the graph
+            q.setQuiz(quiz);
         });
 
         return quizRepository.save(quiz);
@@ -90,8 +88,7 @@ public class QuizService implements CommandLineRunner {
 
     /**
      * Evaluates a quiz attempt: compares each submitted option index with the
-     * correct one, computes the percentage score and builds personalised
-     * feedback and study recommendations.
+     * correct one, computes score, builds feedback, and PERSISTS the attempt to MongoDB.
      */
     public AssessmentResultDto submitQuiz(Long quizId, QuizSubmissionDto submission) {
         if (submission == null) {
@@ -120,8 +117,39 @@ public class QuizService implements CommandLineRunner {
 
         int total = questions.size();
         int score = total == 0 ? 0 : Math.round((correct * 100f) / total);
+        String feedback = buildFeedback(score);
+        String userId = (submission.userId() != null && !submission.userId().isBlank()) 
+                ? submission.userId() : "student1@intellilearn.com";
 
-        return new AssessmentResultDto(quizId, score, correct, total, buildFeedback(score), recommendations);
+        // PERSIST QUIZ ATTEMPT TO MONGODB
+        try {
+            QuizAttempt attempt = QuizAttempt.builder()
+                    .quizId(String.valueOf(quizId))
+                    .userId(userId)
+                    .score(score)
+                    .correctAnswersCount(correct)
+                    .totalQuestions(total)
+                    .feedback(feedback)
+                    .recommendations(recommendations)
+                    .submittedAt(LocalDateTime.now())
+                    .build();
+
+            quizAttemptRepository.save(attempt);
+            log.info("Persisted quiz attempt to MongoDB collection 'quiz_attempts' for quizId={}, userId={}, score={}",
+                    quizId, userId, score);
+        } catch (Exception e) {
+            log.error("Failed to persist quiz attempt to MongoDB: {}", e.getMessage(), e);
+        }
+
+        return new AssessmentResultDto(quizId, score, correct, total, feedback, recommendations);
+    }
+
+    public List<QuizAttempt> getQuizAttempts(Long quizId, String userId) {
+        return quizAttemptRepository.findByQuizIdAndUserId(String.valueOf(quizId), userId);
+    }
+
+    public List<QuizAttempt> getUserAttempts(String userId) {
+        return quizAttemptRepository.findByUserId(userId);
     }
 
     private String buildFeedback(int score) {
@@ -143,17 +171,13 @@ public class QuizService implements CommandLineRunner {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Sample data seeding (CommandLineRunner)
-    // ------------------------------------------------------------------
-
     @Override
     @Transactional
     public void run(String... args) {
         if (quizRepository.count() > 0) {
             return;
         }
-        log.info("Seeding 2 sample quizzes into the in-memory database...");
+        log.info("Seeding 2 sample quizzes...");
 
         Quiz javaQuiz = Quiz.builder()
                 .title("Java Fundamentals")

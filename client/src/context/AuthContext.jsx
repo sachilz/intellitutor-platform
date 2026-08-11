@@ -44,6 +44,12 @@ export const AuthProvider = ({ children }) => {
 
   const [loading, setLoading] = useState(false);
 
+  React.useEffect(() => {
+    if (token) {
+      setAuthToken(token);
+    }
+  }, [token]);
+
   const login = async (usernameOrEmail, password) => {
     setLoading(true);
     let accessToken = null;

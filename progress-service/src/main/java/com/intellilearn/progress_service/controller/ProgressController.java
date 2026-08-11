@@ -24,6 +24,12 @@ public class ProgressController {
         this.progressService = progressService;
     }
 
+    @GetMapping
+    @Operation(summary = "Get all progress records", description = "Retrieves all progress records across all users")
+    public ResponseEntity<List<Progress>> getAllProgress() {
+        return ResponseEntity.ok(progressService.getAllProgress());
+    }
+
     @PostMapping
     @Operation(summary = "Create progress record", description = "Creates a new progress record initialized with 0% completion for a user and course")
     public ResponseEntity<Progress> createProgress(@Valid @RequestBody CreateProgressRequest request) {

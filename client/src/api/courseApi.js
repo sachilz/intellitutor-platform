@@ -33,3 +33,14 @@ export const enrollInCourse = async (courseId, userId) => {
   );
   return response.data;
 };
+
+export const createCourse = async (courseData) => {
+  const response = await axiosInstance.post('/api/courses', courseData, {
+    headers: {
+      'X-API-KEY': COURSE_SERVICE_API_KEY,
+      'X-User-Role': 'INSTRUCTOR',
+      'Content-Type': 'application/json',
+    },
+  });
+  return response.data;
+};

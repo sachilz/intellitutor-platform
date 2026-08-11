@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Avatar from './Avatar';
+import InstructorModal from './InstructorModal';
 import { 
   Sparkles, 
   LayoutDashboard, 
@@ -19,6 +20,7 @@ const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [instructorModalOpen, setInstructorModalOpen] = useState(false);
 
   const [profileData, setProfileData] = useState(() => {
     try {
@@ -110,6 +112,16 @@ const Navbar = () => {
                 <User size={16} />
                 Profile
               </NavLink>
+
+              <button
+                onClick={() => setInstructorModalOpen(true)}
+                className="btn btn-secondary btn-sm"
+                style={{ borderColor: 'rgba(99, 102, 241, 0.4)', color: '#a5b4fc' }}
+                title="Instructor Console"
+              >
+                <ShieldCheck size={14} color="#818cf8" />
+                Instructor Tools
+              </button>
 
               <div className="user-badge-container">
                 <Avatar name={displayUsername} size={28} />
@@ -204,6 +216,11 @@ const Navbar = () => {
           )}
         </div>
       )}
+
+      <InstructorModal
+        isOpen={instructorModalOpen}
+        onClose={() => setInstructorModalOpen(false)}
+      />
     </header>
   );
 };

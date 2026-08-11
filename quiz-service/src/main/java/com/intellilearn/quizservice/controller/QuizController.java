@@ -3,6 +3,7 @@ package com.intellilearn.quizservice.controller;
 import com.intellilearn.quizservice.dto.AssessmentResultDto;
 import com.intellilearn.quizservice.dto.QuizSubmissionDto;
 import com.intellilearn.quizservice.entity.Quiz;
+import com.intellilearn.quizservice.entity.QuizAttempt;
 import com.intellilearn.quizservice.service.QuizService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -26,12 +27,10 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * REST endpoints for the Quiz &amp; Assessment service. All endpoints require a
- * valid {@code X-API-Key} header (enforced by {@code ApiKeyFilter}); Swagger
- * UI and the OpenAPI docs are the only public exceptions.
+ * REST endpoints for the Quiz &amp; Assessment service.
  */
 @RestController
-@RequestMapping("/api/quizzes")
+@RequestMapping("/quizzes")
 @Tag(name = "Quiz & Assessment", description = "Manage quizzes and submit assessments")
 @SecurityRequirement(name = "apiKey")
 public class QuizController {
@@ -62,6 +61,12 @@ public class QuizController {
         return quizService.getQuizById(id);
     }
 
+    @GetMapping("/course/{courseId}")
+    @Operation(summary = "Get quizzes for a course", description = "Returns quizzes matching the given course id.")
+    public List<Quiz> getQuizzesByCourse(@PathVariable String courseId) {
+        return quizService.getAllQuizzes();
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a quiz", description = "Creates a new quiz with its questions. Requires the ADMIN role.")
@@ -81,7 +86,7 @@ public class QuizController {
 
     @PostMapping("/{id}/submit")
     @Operation(summary = "Submit a quiz attempt",
-            description = "Evaluates the submitted answers and returns the score with personalised feedback and recommendations.")
+            description = "Evaluates the submitted answers, persists attempt to MongoDB, and returns score with feedback.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Assessment result",
                     content = @Content(schema = @Schema(implementation = AssessmentResultDto.class))),
@@ -93,5 +98,17 @@ public class QuizController {
             @Parameter(description = "Quiz id", example = "1") @PathVariable Long id,
             @Parameter(description = "Selected option indices, one per question") @Valid @RequestBody QuizSubmissionDto submission) {
         return quizService.submitQuiz(id, submission);
+    }
+
+    @GetMapping("/{quizId}/attempts/{userId}")
+    @Operation(summary = "Get quiz attempts for a user and quiz", description = "Retrieves persisted quiz attempts from MongoDB.")
+    public List<QuizAttempt> getQuizAttempts(@PathVariable Long quizId, @PathVariable String userId) {
+        return quizService.getQuizAttempts(quizId, userId);
+    }
+
+    @GetMapping("/attempts/{userId}")
+    @Operation(summary = "Get all quiz attempts for a user", description = "Retrieves all persisted quiz attempts for a specific user.")
+    public List<QuizAttempt> getUserAttempts(@PathVariable String userId) {
+        return quizService.getUserAttempts(userId);
     }
 }

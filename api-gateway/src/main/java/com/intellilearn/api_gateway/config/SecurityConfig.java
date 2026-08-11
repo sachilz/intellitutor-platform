@@ -27,7 +27,7 @@ public class SecurityConfig {
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .pathMatchers("/gateway/health", "/api/auth/**", "/api/courses/**", "/api/progress/**")
+                        .pathMatchers("/gateway/health", "/api/auth/**", "/api/courses/**", "/api/progress/**", "/api/quizzes/**", "/api/tutor/**")
                         .permitAll()
                         .pathMatchers("/api/**").authenticated()
                         .anyExchange().authenticated())
@@ -44,7 +44,7 @@ public class SecurityConfig {
     private ServerAuthenticationEntryPoint customAuthenticationEntryPoint() {
         return (exchange, ex) -> {
             String path = exchange.getRequest().getURI().getPath();
-            if (path.startsWith("/api/auth/") || path.startsWith("/api/courses") || path.startsWith("/api/progress") || path.equals("/gateway/health")) {
+            if (path.startsWith("/api/auth/") || path.startsWith("/api/courses") || path.startsWith("/api/progress") || path.startsWith("/api/quizzes") || path.startsWith("/api/tutor") || path.equals("/gateway/health")) {
                 return Mono.empty();
             }
 

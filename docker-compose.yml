@@ -1,15 +1,21 @@
 services:
-  # Redis service for API Gateway rate limiting
+  # 1. MongoDB Service (Persistent Database Volume)
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+
+  # 2. Redis service for API Gateway rate limiting
   redis:
     image: redis:7
     container_name: redis
     ports:
       - "6379:6379"
 
-  # Keycloak IAM service for OAuth2 authentication
-  # NOTE: Keycloak realm 'intellilearn', client 'intellilearn-gateway', and users must be
-  # manually configured via the Keycloak Admin Console at http://localhost:8180 after initial startup
-  # (or configured to auto-import a realm JSON file if a keycloak/ directory is added).
+  # 3. Keycloak IAM service for OAuth2 authentication
   keycloak:
     image: quay.io/keycloak/keycloak:25.0
     container_name: keycloak
@@ -20,7 +26,7 @@ services:
     ports:
       - "8180:8080"
 
-  # User Service microservice
+  # 4. User Service microservice
   user-service:
     build:
       context: ./user-service
@@ -28,11 +34,14 @@ services:
     container_name: user-service
     ports:
       - "8081:8081"
+    depends_on:
+      mongodb:
+        condition: service_started
     environment:
-      - MONGODB_URI=${USER_SERVICE_MONGODB_URI}
-      - SECURITY_API_KEY=${USER_SERVICE_API_KEY}
+      - MONGODB_URI=mongodb://mongodb:27017/userdb
+      - SECURITY_API_KEY=user-service-secret-key-123
 
-  # Course Service microservice
+  # 5. Course Service microservice
   course-service:
     build:
       context: ./course-service
@@ -40,11 +49,29 @@ services:
     container_name: course-service
     ports:
       - "8082:8082"
+    depends_on:
+      mongodb:
+        condition: service_started
     environment:
-      - MONGODB_URI=${COURSE_SERVICE_MONGODB_URI}
-      - SECURITY_API_KEY=${COURSE_SERVICE_API_KEY}
+      - MONGODB_URI=mongodb://mongodb:27017/coursedb
+      - SECURITY_API_KEY=course-service-secret-key-456
 
-  # Learning Progress Service microservice
+  # 6. Quiz & Assessment Service microservice
+  quiz-service:
+    build:
+      context: ./quiz-service
+      dockerfile: Dockerfile
+    container_name: quiz-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      mongodb:
+        condition: service_started
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/quizdb
+      - SECURITY_API_KEY=quiz-service-secret-key-101
+
+  # 7. Learning Progress Service microservice
   progress-service:
     build:
       context: ./progress-service
@@ -52,11 +79,29 @@ services:
     container_name: progress-service
     ports:
       - "8084:8084"
+    depends_on:
+      mongodb:
+        condition: service_started
     environment:
-      - MONGODB_URI=${PROGRESS_SERVICE_MONGODB_URI}
-      - SECURITY_API_KEY=${PROGRESS_SERVICE_API_KEY}
+      - MONGODB_URI=mongodb://mongodb:27017/progressdb
+      - SECURITY_API_KEY=progress-service-secret-key-789
 
-  # API Gateway routing & security entry point
+  # 8. AI Tutor RAG Service microservice
+  tutor-service:
+    build:
+      context: ./tutor-service
+      dockerfile: Dockerfile
+    container_name: tutor-service
+    ports:
+      - "8085:8085"
+    depends_on:
+      mongodb:
+        condition: service_started
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/tutordb
+      - SECURITY_API_KEY=tutor-service-secret-key-999
+
+  # 9. API Gateway routing & security entry point
   api-gateway:
     build:
       context: ./api-gateway
@@ -73,16 +118,33 @@ services:
         condition: service_started
       course-service:
         condition: service_started
+      quiz-service:
+        condition: service_started
       progress-service:
+        condition: service_started
+      tutor-service:
         condition: service_started
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      # NOTE: Inside Docker Compose bridge network, services communicate using service names.
-      # Keycloak container listens on internal port 8080 (mapped to 8180 on host), so inside
-      # Docker network the issuer-uri must be http://keycloak:8080/realms/intellilearn.
-      # For local host-level testing outside Docker, issuer-uri was http://localhost:8180/realms/intellilearn.
       - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/intellilearn
       - USER_SERVICE_URL=http://user-service:8081
       - COURSE_SERVICE_URL=http://course-service:8082
+      - QUIZ_SERVICE_URL=http://quiz-service:8083
       - PROGRESS_SERVICE_URL=http://progress-service:8084
+      - TUTOR_SERVICE_URL=http://tutor-service:8085
+
+  # 10. React Client Frontend Container
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: client
+    ports:
+      - "3000:3000"
+    depends_on:
+      api-gateway:
+        condition: service_started
+
+volumes:
+  mongodb-data:
