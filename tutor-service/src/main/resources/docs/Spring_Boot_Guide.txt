@@ -1,0 +1,13 @@
+IntelliLearn Course Reference Material: Spring Boot Guide
+=========================================================
+
+1. Auto-Configuration
+Spring Boot automatically configures dependencies based on classpath JARs.
+
+2. Embedded Servlet Containers
+Comes built-in with Apache Tomcat and Jetty.
+
+3. Key Annotations
+- @RestController: Defines REST API endpoints.
+- @Service: Encapsulates business logic.
+- @Autowired: Injects Spring bean dependencies.

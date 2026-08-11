@@ -1,0 +1,16 @@
+IntelliLearn Course Reference Material: Java OOP Guide
+===================================================
+
+1. Polymorphism
+Polymorphism allows methods to perform different actions based on the object invoking them.
+- Compile-time polymorphism: Method Overloading
+- Runtime polymorphism: Method Overriding
+
+2. Inheritance
+Enables a subclass to inherit fields and methods from a superclass.
+
+3. Encapsulation
+Restricts direct access to object components using private fields and public getter/setter methods.
+
+4. Abstraction
+Hides complex implementation details using Abstract Classes and Interfaces.

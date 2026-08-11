@@ -1,0 +1,11 @@
+IntelliLearn Course Reference Material: Microservices Architecture Spec
+========================================================================
+
+1. API Gateway Routing
+Central entry point handling routing, security, rate limiting, and CORS.
+
+2. Service Isolation
+Each microservice owns its business domain and dedicated database instance.
+
+3. Redis Rate Limiting
+Uses token-bucket algorithm to prevent API abuse.
