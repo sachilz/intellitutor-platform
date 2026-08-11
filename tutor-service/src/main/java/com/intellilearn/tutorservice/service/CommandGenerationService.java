@@ -5,6 +5,8 @@ import com.intellilearn.tutorservice.dto.CommandRequest;
 import com.intellilearn.tutorservice.dto.CommandResponse;
 import com.intellilearn.tutorservice.dto.DiagnoseRequest;
 import com.intellilearn.tutorservice.dto.DiagnoseResponse;
+import com.intellilearn.tutorservice.dto.ExplainRequest;
+import com.intellilearn.tutorservice.dto.ExplainResponse;
 import com.intellilearn.tutorservice.entity.CommandHistory;
 import com.intellilearn.tutorservice.repository.CommandHistoryRepository;
 import com.intellilearn.tutorservice.service.llm.LlmService;
@@ -13,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -101,6 +104,30 @@ public class CommandGenerationService {
         String explanation = "Check container status and socket permissions before re-running.";
 
         return new DiagnoseResponse(cmd, err, diagnosis, causes, suggested, explanation);
+    }
+
+    public ExplainResponse explainCommand(com.intellilearn.tutorservice.dto.ExplainRequest request) {
+        String cmd = request.getCommand() != null ? request.getCommand().trim() : "";
+        String[] parts = cmd.split("\\s+");
+        String binary = parts.length > 0 ? parts[0] : "cli";
+
+        List<com.intellilearn.tutorservice.dto.ExplainResponse.TokenBreakdown> tokens = new ArrayList<>();
+        if (parts.length > 0) {
+            tokens.add(new com.intellilearn.tutorservice.dto.ExplainResponse.TokenBreakdown(parts[0], "Primary executable binary/utility name", "Executable"));
+        }
+        for (int i = 1; i < parts.length; i++) {
+            String p = parts[i];
+            if (p.startsWith("-")) {
+                tokens.add(new com.intellilearn.tutorservice.dto.ExplainResponse.TokenBreakdown(p, "Command line parameter/flag modifying tool behavior", "Flag"));
+            } else {
+                tokens.add(new com.intellilearn.tutorservice.dto.ExplainResponse.TokenBreakdown(p, "Positional argument, directory scope, or target value", "Argument"));
+            }
+        }
+
+        String summary = "Deconstructs execution pipeline for '" + binary + "'";
+        String notes = "Always test commands in non-production environment or use dry-run flags when available.";
+
+        return new com.intellilearn.tutorservice.dto.ExplainResponse(cmd, binary, summary, tokens, notes);
     }
 
     public List<CommandHistory> getUserHistory(String userId) {

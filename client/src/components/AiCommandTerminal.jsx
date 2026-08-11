@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { generateCommand, diagnoseError, getCommandHistory, clearCommandHistory } from '../api/commandApi';
+import { generateCommand, explainCommand, executeCommand, diagnoseError, getCommandHistory, clearCommandHistory, deleteHistoryItem } from '../api/commandApi';
 import { getRecommendations } from '../api/tutorApi';
 import {
   Terminal,
@@ -17,21 +17,30 @@ import {
   Cpu,
   BookOpen,
   X,
-  Bug
+  Bug,
+  HelpCircle,
+  Search,
+  Trash2,
+  ListFilter
 } from 'lucide-react';
 
 export default function AiCommandTerminal({ courseId = 'java-101', userId = 'student1@intellilearn.com' }) {
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [output, setOutput] = useState(null);
+  const [explanationData, setExplanationData] = useState(null);
+  const [explaining, setExplaining] = useState(false);
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyRiskFilter, setHistoryRiskFilter] = useState('ALL');
   const [showDiagnoseModal, setShowDiagnoseModal] = useState(false);
   const [diagnoseForm, setDiagnoseForm] = useState({ command: '', error: '' });
   const [diagnoseResult, setDiagnoseResult] = useState(null);
   const [copied, setCopied] = useState(false);
   const [confirmModal, setConfirmModal] = useState(false);
-  const [executionOutput, setExecutionOutput] = useState(null);
+  const [executionResult, setExecutionResult] = useState(null);
+  const [executing, setExecuting] = useState(false);
 
   useEffect(() => {
     fetchHistory();
@@ -51,7 +60,8 @@ export default function AiCommandTerminal({ courseId = 'java-101', userId = 'stu
     if (!q || !q.trim()) return;
 
     setLoading(true);
-    setExecutionOutput(null);
+    setExecutionResult(null);
+    setExplanationData(null);
     setDiagnoseResult(null);
 
     try {
@@ -74,9 +84,63 @@ export default function AiCommandTerminal({ courseId = 'java-101', userId = 'stu
     }
   };
 
+  const handleExplain = async () => {
+    if (!output || !output.command) return;
+    setExplaining(true);
+    try {
+      const res = await explainCommand(output.command, userId);
+      setExplanationData(res);
+    } catch (err) {
+      console.error('Explanation error:', err);
+    } finally {
+      setExplaining(false);
+    }
+  };
+
+  const handleRunCommand = async () => {
+    if (output.riskLevel === 'HIGH' || output.riskLevel === 'CRITICAL') {
+      setConfirmModal(true);
+      return;
+    }
+    runControlledExecution();
+  };
+
+  const runControlledExecution = async () => {
+    setConfirmModal(false);
+    setExecuting(true);
+    try {
+      const res = await executeCommand(output.command, output.id, userId);
+      setExecutionResult(res);
+      fetchHistory();
+    } catch (err) {
+      console.error('Execution API error:', err);
+      setExecutionResult({
+        command: output.command,
+        status: 'FAILED',
+        exitCode: -1,
+        stdout: '',
+        stderr: 'Execution call failed to connect to Gateway.',
+        durationMs: 0
+      });
+    } finally {
+      setExecuting(false);
+    }
+  };
+
+  const handleDeleteItem = async (e, id) => {
+    e.stopPropagation();
+    try {
+      await deleteHistoryItem(id);
+      fetchHistory();
+    } catch (err) {
+      console.error('Delete item error:', err);
+    }
+  };
+
   const handleShortcutClick = async (shortcutType) => {
     setLoading(true);
-    setExecutionOutput(null);
+    setExecutionResult(null);
+    setExplanationData(null);
     setDiagnoseResult(null);
 
     try {
@@ -145,19 +209,6 @@ export default function AiCommandTerminal({ courseId = 'java-101', userId = 'stu
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const executeCommand = () => {
-    if (output.riskLevel === 'HIGH' || output.riskLevel === 'CRITICAL') {
-      setConfirmModal(true);
-      return;
-    }
-    runSandboxExecution();
-  };
-
-  const runSandboxExecution = () => {
-    setConfirmModal(false);
-    setExecutionOutput('Executing command in controlled sandbox environment...\n$ ' + output.command + '\n\n[STDOUT]\n' + (output.command.startsWith('#') ? 'Info message displayed successfully.' : 'Command executed cleanly with return code 0.\nOutputs: Process active and verified.'));
-  };
-
   const getRiskPill = (level) => {
     switch (level) {
       case 'CRITICAL':
@@ -170,6 +221,14 @@ export default function AiCommandTerminal({ courseId = 'java-101', userId = 'stu
         return { bg: 'rgba(34, 197, 94, 0.2)', border: '1px solid #22c55e', text: '#86efac', label: '🟢 LOW RISK' };
     }
   };
+
+  const filteredHistory = history.filter(item => {
+    const matchesSearch = (item.prompt || '').toLowerCase().includes(historySearch.toLowerCase()) ||
+                          (item.command || '').toLowerCase().includes(historySearch.toLowerCase());
+    if (historyRiskFilter === 'ALL') return matchesSearch;
+    if (historyRiskFilter === 'HIGH') return matchesSearch && (item.riskLevel === 'HIGH' || item.riskLevel === 'CRITICAL');
+    return matchesSearch && item.riskLevel === historyRiskFilter;
+  });
 
   return (
     <div
@@ -210,7 +269,7 @@ export default function AiCommandTerminal({ courseId = 'java-101', userId = 'stu
         </div>
       </div>
 
-      {/* Interactive Action Shortcuts (Inspired by Reference UI) */}
+      {/* Interactive Action Shortcuts */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '1.25rem' }}>
         <button
           onClick={() => handleShortcutClick('RECOMMEND')}
@@ -238,7 +297,7 @@ export default function AiCommandTerminal({ courseId = 'java-101', userId = 'stu
         </button>
       </div>
 
-      {/* Main Terminal Input Prompt Bar */}
+      {/* Input Prompt Bar */}
       <form onSubmit={(e) => { e.preventDefault(); handleGenerate(); }} style={{ display: 'flex', gap: '8px', marginBottom: '1.25rem' }}>
         <div style={{ position: 'relative', flex: 1 }}>
           <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#818cf8', fontWeight: 800 }}>$</span>
@@ -299,6 +358,14 @@ export default function AiCommandTerminal({ courseId = 'java-101', userId = 'stu
             <code style={{ color: '#38bdf8', fontSize: '0.95rem', wordBreak: 'break-all' }}>{output.command}</code>
             <div style={{ display: 'flex', gap: '6px' }}>
               <button
+                onClick={handleExplain}
+                disabled={explaining}
+                style={{ background: 'rgba(168, 85, 247, 0.15)', border: '1px solid rgba(168, 85, 247, 0.4)', color: '#c084fc', padding: '0.4rem 0.65rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                title="Deconstruct & Explain Flags"
+              >
+                <HelpCircle size={14} /> {explaining ? 'Explaining...' : 'Explain Flags'}
+              </button>
+              <button
                 onClick={() => copyToClipboard(output.command)}
                 style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#cbd5e1', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer' }}
                 title="Copy Command"
@@ -306,10 +373,11 @@ export default function AiCommandTerminal({ courseId = 'java-101', userId = 'stu
                 {copied ? <CheckCircle2 size={16} color="#4ade80" /> : <Copy size={16} />}
               </button>
               <button
-                onClick={executeCommand}
+                onClick={handleRunCommand}
+                disabled={executing}
                 style={{ background: '#22c55e', border: 'none', color: '#fff', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}
               >
-                <Play size={14} /> Run
+                <Play size={14} /> {executing ? 'Executing...' : 'Run'}
               </button>
             </div>
           </div>
@@ -323,14 +391,46 @@ export default function AiCommandTerminal({ courseId = 'java-101', userId = 'stu
               ⚠️ <strong>Warning:</strong> {output.warningFlags.join(' ')}
             </div>
           )}
+
+          {/* Deconstructed Token Explanation Accordion */}
+          {explanationData && (
+            <div style={{ marginTop: '1rem', background: '#020617', border: '1px solid rgba(168, 85, 247, 0.3)', borderRadius: '8px', padding: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#c084fc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <HelpCircle size={15} /> Flag Deconstruction ({explanationData.binary})
+                </span>
+                <button onClick={() => setExplanationData(null)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={14} /></button>
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#cbd5e1', marginBottom: '8px' }}>{explanationData.summary}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {explanationData.tokens.map((t, idx) => (
+                  <div key={idx} style={{ background: 'rgba(255,255,255,0.03)', padding: '0.45rem 0.65rem', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+                    <code style={{ color: '#38bdf8', fontWeight: 700 }}>{t.token}</code>
+                    <span style={{ color: '#cbd5e1', flex: 1, marginLeft: '12px' }}>{t.meaning}</span>
+                    <span style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', color: '#a5b4fc', padding: '0.15rem 0.4rem', borderRadius: '4px', fontSize: '0.7rem' }}>{t.category}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Controlled Execution Output Window */}
-      {executionOutput && (
-        <div style={{ background: '#020617', border: '1px solid rgba(34, 197, 94, 0.4)', borderRadius: '10px', padding: '1rem', marginBottom: '1.25rem' }}>
-          <span style={{ fontSize: '0.75rem', color: '#4ade80', fontWeight: 700, display: 'block', marginBottom: '6px' }}>TERMINAL EXECUTION LOG</span>
-          <pre style={{ margin: 0, color: '#f8fafc', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>{executionOutput}</pre>
+      {/* Real Safe Controlled Execution Output Window */}
+      {executionResult && (
+        <div style={{ background: '#020617', border: `1px solid ${executionResult.status === 'SUCCESS' ? '#22c55e' : '#ef4444'}`, borderRadius: '10px', padding: '1rem', marginBottom: '1.25rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <span style={{ fontSize: '0.75rem', color: executionResult.status === 'SUCCESS' ? '#4ade80' : '#fca5a5', fontWeight: 700 }}>
+              TERMINAL SUBPROCESS LOG ({executionResult.status}) — {executionResult.durationMs}ms
+            </span>
+            <button onClick={() => setExecutionResult(null)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={14} /></button>
+          </div>
+          {executionResult.stdout && (
+            <pre style={{ margin: 0, color: '#f8fafc', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>[STDOUT]\n{executionResult.stdout}</pre>
+          )}
+          {executionResult.stderr && (
+            <pre style={{ margin: '6px 0 0 0', color: '#fca5a5', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>[STDERR]\n{executionResult.stderr}</pre>
+          )}
         </div>
       )}
 
@@ -358,17 +458,55 @@ export default function AiCommandTerminal({ courseId = 'java-101', userId = 'stu
       {showHistory && (
         <div style={{ background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#a5b4fc' }}>Recent Command History (MongoDB)</span>
-            <button onClick={async () => { await clearCommandHistory(); setHistory([]); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem' }}>Clear All</button>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#a5b4fc' }}>Command History (MongoDB)</span>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button onClick={async () => { await clearCommandHistory(); setHistory([]); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem' }}>Clear All</button>
+            </div>
           </div>
-          {history.length === 0 ? (
-            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>No past command history recorded.</span>
+
+          {/* History Search & Filter Bar */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '0.75rem' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+              <input
+                type="text"
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                placeholder="Search past prompts or commands..."
+                style={{ width: '100%', padding: '0.4rem 0.6rem 0.4rem 1.8rem', background: '#020617', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', fontSize: '0.78rem' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {['ALL', 'LOW', 'HIGH'].map(r => (
+                <button
+                  key={r}
+                  onClick={() => setHistoryRiskFilter(r)}
+                  style={{ background: historyRiskFilter === r ? '#6366f1' : 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '0.4rem 0.65rem', borderRadius: '6px', fontSize: '0.72rem', cursor: 'pointer' }}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filteredHistory.length === 0 ? (
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>No matching command history found.</span>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto' }}>
-              {history.map((item, idx) => (
-                <div key={idx} onClick={() => setOutput(item)} style={{ background: 'rgba(255,255,255,0.03)', padding: '0.5rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#cbd5e1' }}>{item.prompt}</span>
-                  <code style={{ color: '#38bdf8' }}>{item.command}</code>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '220px', overflowY: 'auto' }}>
+              {filteredHistory.map((item, idx) => (
+                <div key={idx} onClick={() => setOutput(item)} style={{ background: 'rgba(255,255,255,0.03)', padding: '0.5rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ color: '#cbd5e1', display: 'block' }}>{item.prompt}</span>
+                    <code style={{ color: '#38bdf8', fontSize: '0.75rem' }}>{item.command}</code>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {item.executed && (
+                      <span style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80', padding: '0.1rem 0.35rem', borderRadius: '4px', fontSize: '0.68rem' }}>✓ Executed</span>
+                    )}
+                    <button onClick={(e) => handleDeleteItem(e, item.id)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }} title="Delete History Item">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -385,11 +523,11 @@ export default function AiCommandTerminal({ courseId = 'java-101', userId = 'stu
               HIGH RISK COMMAND CONFIRMATION
             </div>
             <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '1rem' }}>
-              This command is classified as <strong>HIGH/CRITICAL RISK</strong> and may alter system files or services. Are you sure you want to execute it in the sandbox?
+              This command is classified as <strong>HIGH/CRITICAL RISK</strong> and may alter system files or services. Execution will be evaluated by backend safety locks.
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button onClick={() => setConfirmModal(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
-              <button onClick={runSandboxExecution} style={{ background: '#ef4444', border: 'none', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}>Confirm & Run</button>
+              <button onClick={runControlledExecution} style={{ background: '#ef4444', border: 'none', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}>Confirm & Run</button>
             </div>
           </div>
         </div>

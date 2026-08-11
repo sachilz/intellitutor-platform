@@ -1,12 +1,10 @@
 package com.intellilearn.tutorservice.controller;
 
-import com.intellilearn.tutorservice.dto.CommandRequest;
-import com.intellilearn.tutorservice.dto.CommandResponse;
-import com.intellilearn.tutorservice.dto.DiagnoseRequest;
-import com.intellilearn.tutorservice.dto.DiagnoseResponse;
+import com.intellilearn.tutorservice.dto.*;
 import com.intellilearn.tutorservice.entity.CommandHistory;
 import com.intellilearn.tutorservice.repository.CommandHistoryRepository;
 import com.intellilearn.tutorservice.service.CommandGenerationService;
+import com.intellilearn.tutorservice.service.ControlledExecutorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,10 +21,14 @@ import java.util.List;
 public class CommandController {
 
     private final CommandGenerationService commandService;
+    private final ControlledExecutorService executorService;
     private final CommandHistoryRepository historyRepository;
 
-    public CommandController(CommandGenerationService commandService, CommandHistoryRepository historyRepository) {
+    public CommandController(CommandGenerationService commandService, 
+                             ControlledExecutorService executorService, 
+                             CommandHistoryRepository historyRepository) {
         this.commandService = commandService;
+        this.executorService = executorService;
         this.historyRepository = historyRepository;
     }
 
@@ -34,6 +36,18 @@ public class CommandController {
     @Operation(summary = "Generate CLI command from natural language prompt")
     public ResponseEntity<CommandResponse> generateCommand(@Valid @RequestBody CommandRequest request) {
         return ResponseEntity.ok(commandService.generateCommand(request));
+    }
+
+    @PostMapping("/explain")
+    @Operation(summary = "Deconstruct and explain CLI flags line-by-line")
+    public ResponseEntity<ExplainResponse> explainCommand(@Valid @RequestBody ExplainRequest request) {
+        return ResponseEntity.ok(commandService.explainCommand(request));
+    }
+
+    @PostMapping("/execute")
+    @Operation(summary = "Execute command safely in controlled sandbox process")
+    public ResponseEntity<ExecuteResponse> executeCommand(@Valid @RequestBody ExecuteRequest request) {
+        return ResponseEntity.ok(executorService.executeCommand(request));
     }
 
     @PostMapping("/diagnose")
@@ -52,6 +66,13 @@ public class CommandController {
     @Operation(summary = "Clear command history")
     public ResponseEntity<Void> clearHistory() {
         historyRepository.deleteAll();
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/history/{id}")
+    @Operation(summary = "Delete single command history item")
+    public ResponseEntity<Void> deleteHistoryItem(@PathVariable String id) {
+        historyRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }
 }
