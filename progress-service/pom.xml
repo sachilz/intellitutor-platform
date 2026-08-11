@@ -9,30 +9,43 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.intellilearn</groupId>
-	<artifactId>api-gateway</artifactId>
+	<artifactId>progress-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>api-gateway</name>
-	<description>API Gateway for IntelliLearn Microservices Platform</description>
+	<name/>
+	<description/>
+	<url/>
+	<licenses>
+		<license/>
+	</licenses>
+	<developers>
+		<developer/>
+	</developers>
+	<scm>
+		<connection/>
+		<developerConnection/>
+		<tag/>
+		<url/>
+	</scm>
 	<properties>
 		<java.version>17</java.version>
-		<spring-cloud.version>2024.0.0</spring-cloud.version>
 	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-actuator</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-starter-gateway</artifactId>
+			<artifactId>spring-boot-starter-data-mongodb</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-redis-reactive</artifactId>
+			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>2.8.5</version>
 		</dependency>
 
 		<dependency>
@@ -41,17 +54,6 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
-	<dependencyManagement>
-		<dependencies>
-			<dependency>
-				<groupId>org.springframework.cloud</groupId>
-				<artifactId>spring-cloud-dependencies</artifactId>
-				<version>${spring-cloud.version}</version>
-				<type>pom</type>
-				<scope>import</scope>
-			</dependency>
-		</dependencies>
-	</dependencyManagement>
 
 	<build>
 		<plugins>

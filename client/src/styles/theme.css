@@ -1,0 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  /* Brand & Color Palette */
+  --primary-hue: 243;
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --primary-active: #4338ca;
+  --primary-light: #818cf8;
+  --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --primary-gradient-hover: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  --primary-soft: rgba(99, 102, 241, 0.15);
+  --primary-border: rgba(99, 102, 241, 0.35);
+
+  --accent: #06b6d4;
+  --accent-hover: #0891b2;
+  --accent-soft: rgba(6, 182, 212, 0.15);
+  --accent-gradient: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+
+  --neon-violet: #a855f7;
+  --neon-cyan: #06b6d4;
+  --neon-emerald: #10b981;
+  --neon-amber: #f59e0b;
+  --neon-rose: #f43f5e;
+
+  /* Status Colors */
+  --success: #10b981;
+  --success-soft: rgba(16, 185, 129, 0.15);
+  --success-border: rgba(16, 185, 129, 0.35);
+  --danger: #ef4444;
+  --danger-soft: rgba(239, 68, 68, 0.15);
+  --danger-border: rgba(239, 68, 68, 0.35);
+  --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.15);
+
+  /* Deep Cyberpunk Dark Theme Palette */
+  --bg-dark: #050811;
+  --bg-elevated: #0b1120;
+  --bg-card: rgba(13, 19, 36, 0.78);
+  --bg-card-hover: rgba(21, 30, 54, 0.88);
+  --bg-glass: rgba(11, 17, 32, 0.82);
+  --bg-input: rgba(11, 17, 32, 0.7);
+  --bg-input-focus: rgba(15, 23, 42, 0.95);
+
+  /* Borders & Dividers */
+  --border-color: rgba(255, 255, 255, 0.09);
+  --border-hover: rgba(255, 255, 255, 0.2);
+  --border-glow: rgba(6, 182, 212, 0.5);
+
+  /* Typography */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+
+  /* Spacing System */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* Border Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 25px rgba(99, 102, 241, 0.3);
+  --shadow-glow-cyan: 0 0 25px rgba(6, 182, 212, 0.35);
+  --shadow-glow-violet: 0 0 25px rgba(168, 85, 247, 0.35);
+
+  /* Transitions */
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Base Reset & Keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseSkeleton {
+  0% { opacity: 0.3; }
+  50% { opacity: 0.7; }
+  100% { opacity: 0.3; }
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--transition-normal) forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp var(--transition-normal) forwards;
+}
