@@ -11,16 +11,17 @@ import { CURATED_COURSES, getCategoryBadgeClass } from '../data/coursesCatalog';
 import { getStoredProgressMap, saveStoredProgressMap, setStoredCourseProgress, removeStoredCourseProgress } from '../utils/progressStorage';
 import TimeAnalyticsModal from '../components/TimeAnalyticsModal';
 import AiCommandTerminal from '../components/AiCommandTerminal';
-import {
-  BookOpen,
-  GraduationCap,
-  TrendingUp,
-  Sparkles,
-  Search,
-  User,
-  ArrowRight,
-  RefreshCw,
-  AlertCircle,
+import AiChatbotComponent from '../components/AiChatbotComponent';
+import { 
+  BookOpen, 
+  GraduationCap, 
+  TrendingUp, 
+  Sparkles, 
+  Search, 
+  User, 
+  ArrowRight, 
+  RefreshCw, 
+  AlertCircle, 
   CheckCircle2,
   Filter,
   Flame,
@@ -1169,27 +1170,40 @@ const DashboardPage = () => {
             Master cutting-edge AI technologies, prompt your AI tutor, track real-time progress, and earn verified skill credentials.
           </p>
 
-          {/* ── AI COMMAND TERMINAL ── */}
+          {/* ── AI COMMAND TERMINAL (REAL AI CHATBOT) ── */}
           <div style={{
-            background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(99,102,241,0.15)', borderRadius: '18px',
+            background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(99,102,241,0.25)', borderRadius: '20px',
             padding: '20px 24px',
+            boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255,255,255,0.05)',
             animation: 'dashFadeSlideIn 0.8s ease',
           }}>
             {/* Terminal header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{
-                  width: '32px', height: '32px', borderRadius: '10px',
+                  width: '36px', height: '36px', borderRadius: '12px',
                   background: 'linear-gradient(135deg, #6366f1, #06b6d4)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 4px 15px rgba(99,102,241,0.3)',
+                  boxShadow: '0 4px 15px rgba(99,102,241,0.4)',
                 }}>
-                  <Bot size={17} color="#fff" />
+                  <Bot size={20} color="#fff" />
                 </div>
                 <div>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#e2e8f0' }}>AI Command Terminal</span>
-                  <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.01em' }}>AI Command Terminal</span>
+                    <span style={{
+                      fontSize: '0.68rem', padding: '2px 8px', borderRadius: '20px',
+                      background: aiConfig.apiKey ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)',
+                      color: aiConfig.apiKey ? '#4ade80' : '#fbbf24',
+                      border: `1px solid ${aiConfig.apiKey ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                      fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px'
+                    }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: aiConfig.apiKey ? '#22c55e' : '#f59e0b' }} />
+                      {aiConfig.apiKey ? `Live ${aiConfig.provider.toUpperCase()}` : 'Offline RAG Engine'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />
                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }} />
                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e' }} />
@@ -1409,31 +1423,12 @@ const DashboardPage = () => {
                 {aiSandboxLoading ? <span className="spinner"></span> : <Send size={17} />}
               </button>
             </div>
-              </div>
-            )}
+          </div>
 
-            {/* Response card */}
-            {aiSandboxResponse && (
-              <div style={{
-                marginTop: '14px', padding: '16px 20px', borderRadius: '14px',
-                background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)',
-                fontSize: '0.88rem', lineHeight: 1.65, whiteSpace: 'pre-line', color: '#cbd5e1',
-                position: 'relative', animation: 'dashFadeSlideIn 0.3s ease',
-              }}>
-                <button
-                  onClick={() => setAiSandboxResponse(null)}
-                  style={{
-                    position: 'absolute', top: '10px', right: '10px',
-                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '6px', padding: '4px', color: '#64748b', cursor: 'pointer',
-                    display: 'flex',
-                  }}
-                >
-                  <X size={12} />
-                </button>
-                {aiSandboxResponse}
-              </div>
-            )}
+          {/* ── INTELLITUTOR AI CHATBOT ── */}
+          <div style={{ marginTop: '1.25rem' }}>
+            <AiChatbotComponent userId={user?.email || 'student1@intellilearn.com'} />
+          </div>
           </div>
         </div>
       </div>

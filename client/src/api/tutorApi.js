@@ -20,6 +20,26 @@ export const saveAiConfig = (config) => {
   }
 };
 
+export const sendChatMessage = async (message, sessionId, courseId, userId) => {
+  const response = await axiosInstance.post('/api/tutor/chat', {
+    message,
+    sessionId,
+    courseId,
+    userId,
+  });
+  return response.data;
+};
+
+export const getSessionHistory = async (sessionId) => {
+  const response = await axiosInstance.get(`/api/tutor/chat/session/${sessionId}`);
+  return response.data;
+};
+
+export const clearChatSession = async (sessionId) => {
+  const response = await axiosInstance.delete(`/api/tutor/chat/session/${sessionId}`);
+  return response.data;
+};
+
 export const askTutor = async (courseId, question, userId, customApiKey, customProvider, customModel) => {
   const currentConfig = getAiConfig();
   const apiKey = customApiKey !== undefined ? customApiKey : currentConfig.apiKey;
@@ -62,4 +82,3 @@ export const getRecommendations = async (courseId, userId) => {
   });
   return response.data;
 };
-
