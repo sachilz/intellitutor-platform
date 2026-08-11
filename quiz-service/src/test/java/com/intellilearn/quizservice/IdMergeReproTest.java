@@ -57,7 +57,7 @@ class IdMergeReproTest {
         // Client edits the title and POSTs it back with the same id in the body.
         ((ObjectNode) node).put("title", "Hacked Fundamentals");
 
-        MvcResult post = mvc.perform(post("/api/quizzes")
+        MvcResult post = mvc.perform(post("/quizzes")
                         .header("X-API-Key", "INTELLILEARN-QUIZ-KEY-2026")
                         .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -95,7 +95,7 @@ class IdMergeReproTest {
         ArrayNode questions = (ArrayNode) node.get("questions");
         questions.remove(questions.size() - 1);
 
-        mvc.perform(post("/api/quizzes")
+        mvc.perform(post("/quizzes")
                         .header("X-API-Key", "INTELLILEARN-QUIZ-KEY-2026")
                         .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -114,7 +114,7 @@ class IdMergeReproTest {
     }
 
     private MvcResult getQuiz(long id) throws Exception {
-        return mvc.perform(get("/api/quizzes/" + id)
+        return mvc.perform(get("/quizzes/" + id)
                         .header("X-API-Key", "INTELLILEARN-QUIZ-KEY-2026"))
                 .andExpect(status().isOk())
                 .andReturn();
