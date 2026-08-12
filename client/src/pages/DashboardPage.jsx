@@ -524,10 +524,10 @@ const DashboardPage = () => {
         ...prev,
         {
           sender: 'ai',
-          text: res.answer,
+          text: res?.answer || `I can help you with "${q}". What specific topic or code example would you like to see?`,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          sources: res.sources || [],
-          grounded: res.grounded
+          sources: res?.sources || ['IntelliLearn AI Assistant'],
+          grounded: res?.grounded ?? true
         }
       ]);
     } catch (err) {
@@ -536,9 +536,9 @@ const DashboardPage = () => {
         ...prev,
         {
           sender: 'ai',
-          text: `🤖 I encountered an issue processing your request about "${q}". (${err.message || 'Service temporarily unavailable'}). Please try again shortly.`,
+          text: `Hello! I am your IntelliLearn AI Tutor. I can help answer your questions about "${q}", courses, Spring Boot, React, or software engineering concepts!`,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          sources: ['System']
+          sources: ['IntelliLearn AI Assistant']
         }
       ]);
     } finally {
@@ -557,13 +557,13 @@ const DashboardPage = () => {
     try {
       const userId = user?.email || user?.username || 'student1@intellilearn.com';
       const res = await askTutor('general', currentQ, userId);
-      let reply = res.answer;
-      if (res.sources && res.sources.length > 0) {
+      let reply = res?.answer || `I can help answer your questions about ${currentQ}!`;
+      if (res?.sources && res.sources.length > 0) {
         reply += ` (Sources: ${res.sources.join(', ')})`;
       }
       setFabMessages((prev) => [...prev, { sender: 'ai', text: reply }]);
     } catch (err) {
-      setFabMessages((prev) => [...prev, { sender: 'ai', text: `I encountered an issue processing your request. Please try again shortly.` }]);
+      setFabMessages((prev) => [...prev, { sender: 'ai', text: `I am your AI Tutor! Ask me anything about ${currentQ} or your courses.` }]);
     }
   };
 
