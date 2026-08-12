@@ -1,4 +1,4 @@
-# ⚡ IntelliLearn — AI-Powered Microservices Learning Platform
+# IntelliLearn — AI-Powered Microservices Learning Platform
 
 > A modern, enterprise-grade Learning Management & Tutoring System built on a **Microservices Architecture** with an integrated **AI Tutor (RAG Engine)**, **Role-Based Workflows (Student & Instructor)**, and **Keycloak SSO Authentication**.
 
@@ -13,7 +13,7 @@
 
 ---
 
-## 🌟 Executive Overview
+## Executive Overview
 
 **IntelliLearn** is an intelligent, full-stack microservices platform designed for modern higher education and online learning. The system pairs course administration, assessment, and real-time student analytics with an **AI-driven Intelligent Tutor** powered by **Retrieval-Augmented Generation (RAG)** and OpenRouter LLMs.
 
@@ -24,7 +24,7 @@
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 ### 👨‍🎓 Student Experience
 - **Interactive Course Catalog**: Browse, search, filter, and enroll in curated technology courses.
@@ -40,7 +40,7 @@
 
 ---
 
-## 🏗️ System Architecture & Data Flow
+## System Architecture & Data Flow
 
 All external client traffic passes through the **API Gateway** (`port 8080`), which handles rate-limiting, CORS, and OAuth2 JWT verification before proxying requests to downstream microservices.
 
@@ -84,7 +84,7 @@ graph TD
 
 ---
 
-## 🛠️ Microservices Architecture Matrix
+## Microservices Architecture Matrix
 
 | Service Name | Stack / Runtime | Port | Database | Primary Responsibilities |
 | :--- | :--- | :---: | :---: | :--- |
@@ -99,7 +99,7 @@ graph TD
 
 ---
 
-## 📚 OpenAPI & Swagger Documentation Hub
+## OpenAPI & Swagger Documentation Hub
 
 IntelliLearn includes an interactive **Streamlit Developer Hub** (`streamlit_app.py`) for inspecting raw OpenAPI specs and testing Swagger documentation across all microservices:
 
@@ -115,7 +115,7 @@ IntelliLearn includes an interactive **Streamlit Developer Hub** (`streamlit_app
 
 ---
 
-## 💻 Tech Stack & Engineering Tools
+## Tech Stack & Engineering Tools
 
 - **Frontend**: React 19, React Router v7, Lucide Icons, Vanilla CSS (Design Tokens, Glassmorphism, Responsive Grid System)
 - **Backend & Gateway**: Java 17, Spring Boot 3.3.2, Spring Cloud Gateway, Node.js Express
@@ -126,7 +126,7 @@ IntelliLearn includes an interactive **Streamlit Developer Hub** (`streamlit_app
 
 ---
 
-## ⚡ Quick Start & Deployment Guide
+## Quick Start & Deployment Guide
 
 ### Prerequisites
 - [Docker Engine 24+](https://docs.docker.com/engine/install/)
@@ -179,7 +179,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 👥 Team & Ownership Matrix
+## eam & Ownership Matrix
 
 | Student ID | Team Role | Core Responsibilities & Microservices |
 | :--- | :--- | :--- |
@@ -188,7 +188,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 🔒 Security & Environment Variables
+## Security & Environment Variables
 
 Key service security headers:
 - **Gateway Entry**: `http://localhost:8080`
@@ -203,6 +203,6 @@ Key service security headers:
 
 ---
 
-## 📄 License
+## License
 
 Distributed under the **MIT License**. See `LICENSE` for details.
