@@ -24,13 +24,13 @@ public class LlmService {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
-    @Value("${OPENAI_API_KEY:}")
+    @Value("${llm.openai.api-key:}")
     private String envOpenAiApiKey;
 
-    @Value("${GEMINI_API_KEY:}")
+    @Value("${llm.gemini.api-key:}")
     private String envGeminiApiKey;
 
-    @Value("${GROQ_API_KEY:}")
+    @Value("${llm.groq.api-key:}")
     private String envGroqApiKey;
 
     private static final String SYSTEM_PROMPT = 

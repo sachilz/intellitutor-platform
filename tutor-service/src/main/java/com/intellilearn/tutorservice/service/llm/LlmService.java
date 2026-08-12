@@ -4,7 +4,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-@Service
+@Service("llmProviderService")
 public class LlmService {
 
     private final List<LlmProvider> providers;
