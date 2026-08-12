@@ -19,9 +19,11 @@ public class RagService {
     private static final Logger log = LoggerFactory.getLogger(RagService.class);
 
     private final TutorInteractionRepository interactionRepository;
+    private final LlmService llmService;
 
-    public RagService(TutorInteractionRepository interactionRepository) {
+    public RagService(TutorInteractionRepository interactionRepository, LlmService llmService) {
         this.interactionRepository = interactionRepository;
+        this.llmService = llmService;
     }
 
     public TutorResponse processQuestion(AskQuestionRequest request) {
@@ -31,44 +33,60 @@ public class RagService {
 
         boolean grounded = false;
         List<String> sources = new ArrayList<>();
-        String answer;
+        String answer = null;
 
-        if (lowerQ.contains("polymorphism")) {
-            grounded = true;
-            sources.add("Java_OOP_Guide.pdf");
-            sources.add("Java_Core_Concepts.pdf");
-            answer = "Polymorphism in Java allows objects to take on many forms. The most common use of polymorphism in OOP occurs when a parent class reference is used to refer to a child class object. It manifests as Compile-time (Method Overloading) and Runtime (Method Overriding) polymorphism.";
-        } else if (lowerQ.contains("inheritance") || lowerQ.contains("encapsulation") || lowerQ.contains("abstraction") || lowerQ.contains("oop")) {
-            grounded = true;
-            sources.add("Java_OOP_Guide.pdf");
-            answer = "Object-Oriented Programming (OOP) relies on 4 core pillars: Encapsulation (data hiding), Abstraction (hiding implementation details), Inheritance (reusing code across hierarchy), and Polymorphism (dynamic behavior).";
-        } else if (lowerQ.contains("spring") || lowerQ.contains("boot") || lowerQ.contains("annotation") || lowerQ.contains("autowired")) {
-            grounded = true;
-            sources.add("Spring_Boot_Guide.pdf");
-            sources.add("Microservices_Architecture_Spec.pdf");
-            answer = "Spring Boot simplifies Spring application development by providing auto-configuration, starter dependencies, and embedded HTTP servers (Tomcat/Jetty). Key annotations include @RestController, @Service, @Autowired, and @SpringBootApplication.";
-        } else if (lowerQ.contains("gateway") || lowerQ.contains("microservice") || lowerQ.contains("circuit") || lowerQ.contains("rate limit") || lowerQ.contains("redis")) {
-            grounded = true;
-            sources.add("Microservices_Architecture_Spec.pdf");
-            answer = "In a Microservices Architecture, the API Gateway acts as the single entry point for all client requests. It handles centralized request routing, OAuth2/JWT security authentication, CORS configuration, and Redis-backed rate limiting to protect downstream services.";
-        } else if (lowerQ.contains("react") || lowerQ.contains("component") || lowerQ.contains("state") || lowerQ.contains("hook") || lowerQ.contains("jsx")) {
-            grounded = true;
-            sources.add("React_Hooks_Reference.pdf");
-            sources.add("Web_Development_Mastery.pdf");
-            answer = "React is a component-based frontend library. Components manage state using hooks like useState and useEffect. Data flows unidirectionally via props, and React's Virtual DOM efficiently re-renders updated UI nodes.";
-        } else if (lowerQ.contains("mongo") || lowerQ.contains("database") || lowerQ.contains("nosql") || lowerQ.contains("collection") || lowerQ.contains("document")) {
-            grounded = true;
-            sources.add("Database_Design_Guide.pdf");
-            sources.add("MongoDB_SpringData_Manual.pdf");
-            answer = "MongoDB is a NoSQL document database that stores data in flexible, JSON-like BSON documents. Collections hold documents, allowing schema flexibility, high read/write performance, and seamless horizontal scaling.";
-        } else if (!q.isEmpty()) {
-            grounded = false;
-            sources = List.of();
-            answer = "I am your IntelliLearn AI Tutor. I couldn't locate specific grounded material in the course index for your question. Please ensure your query relates to course modules such as Java OOP, Spring Boot, Microservices, Web Development, or Databases.";
-        } else {
-            grounded = false;
-            sources = List.of();
-            answer = "Please ask a question regarding your course materials!";
+        // 1. Check if LLM Service can handle the request with a live API Key
+        if (llmService.isConfigured(request.getApiKey(), request.getProvider()) && !q.isEmpty()) {
+            try {
+                answer = llmService.generateResponse(q, courseId, request.getApiKey(), request.getProvider(), request.getModel());
+                grounded = true;
+                String activeProvider = (request.getProvider() != null && !request.getProvider().isBlank()) ? request.getProvider().toUpperCase() : "LLM API";
+                sources.add("Live " + activeProvider + " AI Engine");
+                sources.add("Course Knowledge Base Context");
+            } catch (Exception e) {
+                log.warn("LLM API execution failed, falling back to local grounded engine: {}", e.getMessage());
+            }
+        }
+
+        // 2. Fallback to offline grounded engine if LLM was not used or failed
+        if (answer == null) {
+            if (lowerQ.contains("polymorphism")) {
+                grounded = true;
+                sources.add("Java_OOP_Guide.pdf");
+                sources.add("Java_Core_Concepts.pdf");
+                answer = "Polymorphism in Java allows objects to take on many forms. The most common use of polymorphism in OOP occurs when a parent class reference is used to refer to a child class object. It manifests as Compile-time (Method Overloading) and Runtime (Method Overriding) polymorphism.";
+            } else if (lowerQ.contains("inheritance") || lowerQ.contains("encapsulation") || lowerQ.contains("abstraction") || lowerQ.contains("oop")) {
+                grounded = true;
+                sources.add("Java_OOP_Guide.pdf");
+                answer = "Object-Oriented Programming (OOP) relies on 4 core pillars: Encapsulation (data hiding), Abstraction (hiding implementation details), Inheritance (reusing code across hierarchy), and Polymorphism (dynamic behavior).";
+            } else if (lowerQ.contains("spring") || lowerQ.contains("boot") || lowerQ.contains("annotation") || lowerQ.contains("autowired")) {
+                grounded = true;
+                sources.add("Spring_Boot_Guide.pdf");
+                sources.add("Microservices_Architecture_Spec.pdf");
+                answer = "Spring Boot simplifies Spring application development by providing auto-configuration, starter dependencies, and embedded HTTP servers (Tomcat/Jetty). Key annotations include @RestController, @Service, @Autowired, and @SpringBootApplication.";
+            } else if (lowerQ.contains("gateway") || lowerQ.contains("microservice") || lowerQ.contains("circuit") || lowerQ.contains("rate limit") || lowerQ.contains("redis")) {
+                grounded = true;
+                sources.add("Microservices_Architecture_Spec.pdf");
+                answer = "In a Microservices Architecture, the API Gateway acts as the single entry point for all client requests. It handles centralized request routing, OAuth2/JWT security authentication, CORS configuration, and Redis-backed rate limiting to protect downstream services.";
+            } else if (lowerQ.contains("react") || lowerQ.contains("component") || lowerQ.contains("state") || lowerQ.contains("hook") || lowerQ.contains("jsx")) {
+                grounded = true;
+                sources.add("React_Hooks_Reference.pdf");
+                sources.add("Web_Development_Mastery.pdf");
+                answer = "React is a component-based frontend library. Components manage state using hooks like useState and useEffect. Data flows unidirectionally via props, and React's Virtual DOM efficiently re-renders updated UI nodes.";
+            } else if (lowerQ.contains("mongo") || lowerQ.contains("database") || lowerQ.contains("nosql") || lowerQ.contains("collection") || lowerQ.contains("document")) {
+                grounded = true;
+                sources.add("Database_Design_Guide.pdf");
+                sources.add("MongoDB_SpringData_Manual.pdf");
+                answer = "MongoDB is a NoSQL document database that stores data in flexible, JSON-like BSON documents. Collections hold documents, allowing schema flexibility, high read/write performance, and seamless horizontal scaling.";
+            } else if (!q.isEmpty()) {
+                grounded = false;
+                sources = List.of();
+                answer = "I am your IntelliLearn AI Tutor. I couldn't locate specific grounded material in the course index for your question. You can connect your OpenAI, Gemini, or Groq API Key using the ⚙️ Settings button to unlock unlimited AI answers for any software engineering topic!";
+            } else {
+                grounded = false;
+                sources = List.of();
+                answer = "Please ask a question regarding your course materials!";
+            }
         }
 
         TutorResponse response = TutorResponse.builder()

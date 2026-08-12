@@ -15,6 +15,15 @@ public class AskQuestionRequest {
     @Schema(description = "User identifier asking the question", example = "student1@intellilearn.com")
     private String userId;
 
+    @Schema(description = "Optional LLM API Key (OpenAI, Gemini, Groq, etc.)", example = "sk-...")
+    private String apiKey;
+
+    @Schema(description = "Optional LLM Provider (openai, gemini, groq, openrouter)", example = "openai")
+    private String provider;
+
+    @Schema(description = "Optional LLM Model", example = "gpt-4o")
+    private String model;
+
     public AskQuestionRequest() {
     }
 
@@ -22,6 +31,15 @@ public class AskQuestionRequest {
         this.courseId = courseId;
         this.question = question;
         this.userId = userId;
+    }
+
+    public AskQuestionRequest(String courseId, String question, String userId, String apiKey, String provider, String model) {
+        this.courseId = courseId;
+        this.question = question;
+        this.userId = userId;
+        this.apiKey = apiKey;
+        this.provider = provider;
+        this.model = model;
     }
 
     public String getCourseId() {
@@ -46,5 +64,29 @@ public class AskQuestionRequest {
 
     public void setUserId(String userId) {
         this.userId = userId;
+    }
+
+    public String getApiKey() {
+        return apiKey;
+    }
+
+    public void setApiKey(String apiKey) {
+        this.apiKey = apiKey;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
+    }
+
+    public String getModel() {
+        return model;
+    }
+
+    public void setModel(String model) {
+        this.model = model;
     }
 }

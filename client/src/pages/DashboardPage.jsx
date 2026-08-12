@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getCourses, enrollInCourse } from '../api/courseApi';
 import { getUserProgress, updateProgress, createProgress } from '../api/progressApi';
-import { askTutor } from '../api/tutorApi';
+import { askTutor, getAiConfig, saveAiConfig } from '../api/tutorApi';
 import { getQuizzes, submitQuiz, getQuizAttempts } from '../api/quizApi';
 import { CourseGridSkeleton } from '../components/SkeletonLoader';
 import { CURATED_COURSES, getCategoryBadgeClass } from '../data/coursesCatalog';
@@ -53,7 +53,13 @@ import {
   Pause,
   Play,
   ShieldCheck,
-  RotateCcw
+  RotateCcw,
+  Settings,
+  Key,
+  Copy,
+  Cpu,
+  Layers,
+  Code
 } from 'lucide-react';
 
 const DashboardPage = () => {
@@ -184,10 +190,26 @@ const DashboardPage = () => {
     return `${hrs > 0 ? `${hrs.toString().padStart(2, '0')}:` : ''}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // AI Assistant Sandbox Terminal State
+  // AI Config & Modal State
+  const [aiConfig, setAiConfigState] = useState(() => getAiConfig());
+  const [showAiConfigModal, setShowAiConfigModal] = useState(false);
+  const [tempApiKey, setTempApiKey] = useState(aiConfig.apiKey || '');
+  const [tempProvider, setTempProvider] = useState(aiConfig.provider || 'openai');
+  const [tempModel, setTempModel] = useState(aiConfig.model || 'gpt-4o-mini');
+  const [showKeyPassword, setShowKeyPassword] = useState(false);
+  const [copiedMsgIndex, setCopiedMsgIndex] = useState(null);
+
+  // Multi-turn Interactive AI Chat Terminal State
   const [aiSandboxPrompt, setAiSandboxPrompt] = useState('');
-  const [aiSandboxResponse, setAiSandboxResponse] = useState(null);
   const [aiSandboxLoading, setAiSandboxLoading] = useState(false);
+  const [terminalChat, setTerminalChat] = useState([
+    {
+      sender: 'ai',
+      text: '👋 Welcome to your **AI Command Terminal**! I am your real-time AI Tutor for the IntelliLearn Platform. Ask me anything about Java OOP, Spring Boot, Microservices, React, Databases, or software engineering concepts!',
+      time: 'Just now',
+      sources: ['Knowledge Base Engine']
+    }
+  ]);
 
   // Floating AI Assistant Drawer Toggle
   const [fabOpen, setFabOpen] = useState(false);
@@ -459,26 +481,78 @@ const DashboardPage = () => {
     addToast('⏱️ Logged +30 mins of AI learning! +25 XP added.', 'success', 'Study Time Logged');
   };
 
-  // AI Assistant Sandbox Terminal Handler
+  const handleSaveAiConfig = () => {
+    const newConfig = { apiKey: tempApiKey.trim(), provider: tempProvider, model: tempModel };
+    saveAiConfig(newConfig);
+    setAiConfigState(newConfig);
+    setShowAiConfigModal(false);
+    addToast(
+      newConfig.apiKey ? `⚡ AI Key configured! Live provider: ${tempProvider.toUpperCase()} (${tempModel})` : 'ℹ️ Config saved (Offline Grounded RAG mode)',
+      'success',
+      'AI Settings Updated'
+    );
+  };
+
+  const handleClearTerminalChat = () => {
+    setTerminalChat([
+      {
+        sender: 'ai',
+        text: 'Terminal chat reset. What would you like to learn next?',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        sources: []
+      }
+    ]);
+    addToast('Terminal chat history cleared.', 'info', 'Chat Cleared');
+  };
+
+  const copyMessageToClipboard = (text, index) => {
+    try {
+      navigator.clipboard.writeText(text);
+      setCopiedMsgIndex(index);
+      addToast('Copied answer to clipboard!', 'success', 'Copied');
+      setTimeout(() => setCopiedMsgIndex(null), 2000);
+    } catch (e) {
+      console.warn('Clipboard write failed:', e);
+    }
+  };
+
+  // AI Assistant Sandbox Terminal Handler (Multi-turn)
   const handleAiSandboxPrompt = async (promptText) => {
     const q = promptText || aiSandboxPrompt;
-    if (!q.trim()) return;
+    if (!q.trim() || aiSandboxLoading) return;
 
-    setAiSandboxPrompt(q);
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const userMsg = { sender: 'user', text: q, time: timeStr };
+
+    setTerminalChat((prev) => [...prev, userMsg]);
+    setAiSandboxPrompt('');
     setAiSandboxLoading(true);
-    setAiSandboxResponse(null);
 
     try {
       const userId = user?.email || user?.username || 'student1@intellilearn.com';
-      const res = await askTutor('general', q, userId);
-      let output = res.answer;
-      if (res.sources && res.sources.length > 0) {
-        output += `\n\n📌 **Sources:** ${res.sources.join(', ')}`;
-      }
-      setAiSandboxResponse(output);
+      const res = await askTutor('general', q, userId, aiConfig.apiKey, aiConfig.provider, aiConfig.model);
+
+      setTerminalChat((prev) => [
+        ...prev,
+        {
+          sender: 'ai',
+          text: res.answer,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          sources: res.sources || [],
+          grounded: res.grounded
+        }
+      ]);
     } catch (err) {
-      console.warn('RAG API offline, using fallback response:', err);
-      setAiSandboxResponse(`🤖 **AI Tutor Response**: "${q}" is an important learning concept. Ask about polymorphism, Spring Boot, or microservices for grounded retrieval answers!`);
+      console.warn('RAG/LLM API error:', err);
+      setTerminalChat((prev) => [
+        ...prev,
+        {
+          sender: 'ai',
+          text: `🤖 **AI Tutor Response**: "${q}" is an important topic! (System notice: ${err.message || 'Offline mode'}). Click ⚙️ Settings above to add your OpenAI, Gemini, or Groq API Key for live AI responses!`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          sources: ['Offline Grounded Engine']
+        }
+      ]);
     } finally {
       setAiSandboxLoading(false);
     }
@@ -494,14 +568,14 @@ const DashboardPage = () => {
 
     try {
       const userId = user?.email || user?.username || 'student1@intellilearn.com';
-      const res = await askTutor('general', currentQ, userId);
+      const res = await askTutor('general', currentQ, userId, aiConfig.apiKey, aiConfig.provider, aiConfig.model);
       let reply = res.answer;
       if (res.sources && res.sources.length > 0) {
         reply += ` (Sources: ${res.sources.join(', ')})`;
       }
       setFabMessages((prev) => [...prev, { sender: 'ai', text: reply }]);
     } catch (err) {
-      setFabMessages((prev) => [...prev, { sender: 'ai', text: `I analyzed your request about "${currentQ}". Check out our courses or ask about Java/Spring concepts!` }]);
+      setFabMessages((prev) => [...prev, { sender: 'ai', text: `I analyzed your request about "${currentQ}". Check out our courses or configure your API Key in the AI Command Terminal settings!` }]);
     }
   };
 
@@ -1056,19 +1130,21 @@ const DashboardPage = () => {
             }}>
               <Sparkles size={14} color="#818cf8" /> AI Learning Hub & Assistant
             </div>
-
+            {/* Top pill */}
             <div style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
-              background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(16px)',
-              border: '1px solid rgba(255,255,255,0.06)', padding: '6px 14px', borderRadius: '12px',
+              display: 'flex', alignItems: 'center', gap: '8px',
+              background: 'rgba(99,102,241,0.08)', backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(99,102,241,0.2)', padding: '6px 14px', borderRadius: '12px',
               animation: 'dashFadeSlideIn 0.6s ease',
             }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', animation: 'dashPulse 2s ease-in-out infinite' }} />
-              <span style={{ fontSize: '0.78rem', color: '#e2e8f0', fontWeight: 700 }}>AI Tutor Online</span>
+              <span style={{ fontSize: '0.78rem', color: '#e2e8f0', fontWeight: 700 }}>AI Tutor Live</span>
               <span style={{
-                fontSize: '0.68rem', color: '#94a3b8',
-                background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '6px',
-              }}>GPT-4o / Claude 3.5</span>
+                fontSize: '0.68rem', color: aiConfig.apiKey ? '#a5b4fc' : '#94a3b8',
+                background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '6px', fontWeight: 600
+              }}>
+                {aiConfig.apiKey ? `${aiConfig.provider.toUpperCase()} (${aiConfig.model})` : 'Offline RAG Mode'}
+              </span>
             </div>
           </div>
 
@@ -1092,52 +1168,197 @@ const DashboardPage = () => {
             Master cutting-edge AI technologies, prompt your AI tutor, track real-time progress, and earn verified skill credentials.
           </p>
 
-          {/* ── AI COMMAND TERMINAL ── */}
+          {/* ── AI COMMAND TERMINAL (REAL AI CHATBOT) ── */}
           <div style={{
-            background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(99,102,241,0.15)', borderRadius: '18px',
+            background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(99,102,241,0.25)', borderRadius: '20px',
             padding: '20px 24px',
+            boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255,255,255,0.05)',
             animation: 'dashFadeSlideIn 0.8s ease',
           }}>
             {/* Terminal header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{
-                  width: '32px', height: '32px', borderRadius: '10px',
+                  width: '36px', height: '36px', borderRadius: '12px',
                   background: 'linear-gradient(135deg, #6366f1, #06b6d4)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 4px 15px rgba(99,102,241,0.3)',
+                  boxShadow: '0 4px 15px rgba(99,102,241,0.4)',
                 }}>
-                  <Bot size={17} color="#fff" />
+                  <Bot size={20} color="#fff" />
                 </div>
                 <div>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#e2e8f0' }}>AI Command Terminal</span>
-                  <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.01em' }}>AI Command Terminal</span>
+                    <span style={{
+                      fontSize: '0.68rem', padding: '2px 8px', borderRadius: '20px',
+                      background: aiConfig.apiKey ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)',
+                      color: aiConfig.apiKey ? '#4ade80' : '#fbbf24',
+                      border: `1px solid ${aiConfig.apiKey ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                      fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px'
+                    }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: aiConfig.apiKey ? '#22c55e' : '#f59e0b' }} />
+                      {aiConfig.apiKey ? `Live ${aiConfig.provider.toUpperCase()}` : 'Offline RAG Engine'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />
                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }} />
                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e' }} />
                   </div>
                 </div>
               </div>
-              <span style={{ fontSize: '0.72rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Zap size={11} color="#f59e0b" /> Instant AI Insights
-              </span>
+
+              {/* Terminal Action Buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  onClick={() => setShowAiConfigModal(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '7px 14px', borderRadius: '10px',
+                    background: aiConfig.apiKey ? 'rgba(99,102,241,0.15)' : 'rgba(245,158,11,0.15)',
+                    border: `1px solid ${aiConfig.apiKey ? 'rgba(99,102,241,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                    color: aiConfig.apiKey ? '#a5b4fc' : '#fbbf24',
+                    fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
+                >
+                  <Settings size={13} /> {aiConfig.apiKey ? 'API Configured' : '⚙️ Connect API Key'}
+                </button>
+
+                {terminalChat.length > 1 && (
+                  <button
+                    onClick={handleClearTerminalChat}
+                    title="Clear Terminal Chat"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      width: '32px', height: '32px', borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                      color: '#94a3b8', cursor: 'pointer', transition: 'all 0.2s ease',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.color = '#ef4444'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#94a3b8'; }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Chat Messages Stream */}
+            <div style={{
+              maxHeight: '320px', overflowY: 'auto', paddingRight: '6px',
+              display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '16px',
+              scrollBehavior: 'smooth'
+            }}>
+              {terminalChat.map((msg, index) => (
+                <div
+                  key={index}
+                  style={{
+                    display: 'flex',
+                    flexDirection: msg.sender === 'user' ? 'row-reverse' : 'row',
+                    gap: '12px', alignItems: 'flex-start'
+                  }}
+                >
+                  {msg.sender === 'ai' && (
+                    <div style={{
+                      width: '30px', height: '30px', borderRadius: '10px',
+                      background: 'linear-gradient(135deg, #6366f1, #3b82f6)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0, marginTop: '2px'
+                    }}>
+                      <Bot size={15} color="#fff" />
+                    </div>
+                  )}
+
+                  <div style={{
+                    maxWidth: '82%',
+                    background: msg.sender === 'user'
+                      ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+                      : 'rgba(30, 41, 59, 0.75)',
+                    border: msg.sender === 'user' ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: msg.sender === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                    padding: '12px 16px', color: '#f1f5f9', fontSize: '0.86rem', lineHeight: 1.6,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)', position: 'relative'
+                  }}>
+                    <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                      {msg.text}
+                    </div>
+
+                    {/* Sources / Metadata tags */}
+                    {msg.sender === 'ai' && (
+                      <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          {msg.sources && msg.sources.map((src, idx) => (
+                            <span key={idx} style={{
+                              fontSize: '0.68rem', padding: '2px 8px', borderRadius: '6px',
+                              background: 'rgba(99,102,241,0.15)', color: '#a5b4fc',
+                              border: '1px solid rgba(99,102,241,0.2)', fontWeight: 600
+                            }}>
+                              📌 {src}
+                            </span>
+                          ))}
+                        </div>
+                        
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+                          <button
+                            onClick={() => copyMessageToClipboard(msg.text, index)}
+                            title="Copy answer"
+                            style={{
+                              background: 'none', border: 'none', color: copiedMsgIndex === index ? '#22c55e' : '#64748b',
+                              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem'
+                            }}
+                          >
+                            {copiedMsgIndex === index ? <Check size={12} /> : <Copy size={12} />}
+                            {copiedMsgIndex === index ? 'Copied' : 'Copy'}
+                          </button>
+                          <span style={{ fontSize: '0.68rem', color: '#64748b' }}>{msg.time}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {aiSandboxLoading && (
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <div style={{
+                    width: '30px', height: '30px', borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #6366f1, #3b82f6)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <Bot size={15} color="#fff" />
+                  </div>
+                  <div style={{
+                    background: 'rgba(30, 41, 59, 0.75)', border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '16px 16px 16px 4px', padding: '12px 18px',
+                    display: 'flex', alignItems: 'center', gap: '8px', color: '#a5b4fc', fontSize: '0.84rem'
+                  }}>
+                    <span className="spinner"></span> AI is thinking...
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Quick prompt chips */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
               {[
-                { label: 'Recommend Course', icon: Target, color: '#6366f1', prompt: 'Recommend a course for my goals' },
-                { label: 'In-Demand Skills', icon: Zap, color: '#f59e0b', prompt: 'What AI skills are in demand?' },
-                { label: 'My Roadmap', icon: Flame, color: '#ef4444', prompt: 'Show my learning roadmap' },
-                { label: 'Explain Transformers', icon: HelpCircle, color: '#06b6d4', prompt: 'Explain Transformer self-attention' },
+                { label: 'Recommend Course', icon: Target, color: '#6366f1', prompt: 'Recommend a personalized course for my learning & career goals' },
+                { label: 'In-Demand Skills', icon: Zap, color: '#f59e0b', prompt: 'What AI, Spring Boot & Cloud skills are in highest demand for 2026?' },
+                { label: 'My Roadmap', icon: Flame, color: '#ef4444', prompt: 'Show my learning roadmap and recommended next steps for full stack & AI' },
+                { label: 'Explain Microservices', icon: HelpCircle, color: '#06b6d4', prompt: 'Explain how Microservices API Gateway routing and rate limiting work' },
+                { label: 'Spring Boot + React', icon: Code, color: '#10b981', prompt: 'How do Spring Boot REST APIs communicate with React frontend applications?' },
+                { label: 'Java OOP Pillars', icon: BookOpen, color: '#a855f7', prompt: 'Explain the 4 pillars of Object-Oriented Programming with Java examples' },
               ].map((chip, i) => (
                 <button
                   key={i}
                   onClick={() => handleAiSandboxPrompt(chip.prompt)}
+                  disabled={aiSandboxLoading}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '6px',
-                    padding: '7px 14px', borderRadius: '10px',
+                    padding: '6px 12px', borderRadius: '10px',
                     background: `${chip.color}12`, border: `1px solid ${chip.color}30`,
                     color: chip.color, fontSize: '0.78rem', fontWeight: 700,
                     cursor: 'pointer', transition: 'all 0.2s ease',
@@ -1155,22 +1376,22 @@ const DashboardPage = () => {
               <div style={{ flex: 1, position: 'relative' }}>
                 <input
                   type="text"
-                  placeholder="Ask AI tutor anything about courses, skills, or concepts..."
+                  placeholder="Ask AI tutor anything about courses, skills, Spring Boot, React, microservices..."
                   value={aiSandboxPrompt}
                   onChange={(e) => setAiSandboxPrompt(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAiSandboxPrompt()}
                   style={{
                     width: '100%', padding: '12px 40px 12px 16px', borderRadius: '12px',
-                    background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.08)',
+                    background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.1)',
                     color: '#e2e8f0', fontSize: '0.88rem', fontWeight: 500,
                     outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box',
                   }}
                   onFocus={e => { e.target.style.borderColor = 'rgba(99,102,241,0.5)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.1)'; }}
-                  onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }}
+                  onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }}
                 />
                 {aiSandboxPrompt && (
                   <button
-                    onClick={() => { setAiSandboxPrompt(''); setAiSandboxResponse(null); }}
+                    onClick={() => setAiSandboxPrompt('')}
                     style={{
                       position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
                       background: 'none', border: 'none', color: '#475569', cursor: 'pointer',
@@ -1183,51 +1404,23 @@ const DashboardPage = () => {
               </div>
               <button
                 onClick={() => handleAiSandboxPrompt()}
-                disabled={aiSandboxLoading}
+                disabled={aiSandboxLoading || !aiSandboxPrompt.trim()}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: '48px', height: '48px', borderRadius: '12px',
-                  background: 'linear-gradient(135deg, #6366f1, #a855f7)',
-                  border: 'none', color: '#fff', cursor: 'pointer',
+                  background: (!aiSandboxPrompt.trim() || aiSandboxLoading)
+                    ? 'rgba(99,102,241,0.3)'
+                    : 'linear-gradient(135deg, #6366f1, #a855f7)',
+                  border: 'none', color: '#fff', cursor: (!aiSandboxPrompt.trim() || aiSandboxLoading) ? 'not-allowed' : 'pointer',
                   transition: 'all 0.2s ease', flexShrink: 0,
                   boxShadow: '0 4px 20px rgba(99,102,241,0.3)',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 6px 25px rgba(99,102,241,0.4)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(99,102,241,0.3)'; }}
+                onMouseEnter={e => { if (aiSandboxPrompt.trim()) { e.currentTarget.style.transform = 'scale(1.05)'; } }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
               >
                 {aiSandboxLoading ? <span className="spinner"></span> : <Send size={17} />}
               </button>
             </div>
-
-            {/* Loading state */}
-            {aiSandboxLoading && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', fontSize: '0.82rem', color: '#a5b4fc' }}>
-                <span className="spinner"></span> Generating insights...
-              </div>
-            )}
-
-            {/* Response card */}
-            {aiSandboxResponse && (
-              <div style={{
-                marginTop: '14px', padding: '16px 20px', borderRadius: '14px',
-                background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)',
-                fontSize: '0.88rem', lineHeight: 1.65, whiteSpace: 'pre-line', color: '#cbd5e1',
-                position: 'relative', animation: 'dashFadeSlideIn 0.3s ease',
-              }}>
-                <button
-                  onClick={() => setAiSandboxResponse(null)}
-                  style={{
-                    position: 'absolute', top: '10px', right: '10px',
-                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '6px', padding: '4px', color: '#64748b', cursor: 'pointer',
-                    display: 'flex',
-                  }}
-                >
-                  <X size={12} />
-                </button>
-                {aiSandboxResponse}
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -2364,6 +2557,187 @@ const DashboardPage = () => {
           addToast(`Logged study time! +${xpAmount} XP added 🚀`, 'success', 'Time Logged');
         }}
       />
+
+      {/* 14. AI TUTOR API KEY CONFIGURATION MODAL */}
+      {showAiConfigModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+        }}>
+          <div style={{
+            background: 'linear-gradient(145deg, #0f172a, #1e293b)',
+            border: '1px solid rgba(99,102,241,0.3)', borderRadius: '24px',
+            padding: '28px', maxWidth: '540px', width: '100%',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', position: 'relative',
+            animation: 'dashFadeSlideIn 0.3s ease'
+          }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '40px', height: '40px', borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 4px 15px rgba(99,102,241,0.4)'
+                }}>
+                  <Key size={20} color="#fff" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#f8fafc' }}>Configure AI Tutor Key</h3>
+                  <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Connect OpenAI, Gemini, or Groq for real AI responses</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAiConfigModal(false)}
+                style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '8px', padding: '6px', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Provider Selection */}
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '8px' }}>
+                AI Model Provider
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                {[
+                  { id: 'openai', name: 'OpenAI', defaultModel: 'gpt-4o-mini', desc: 'GPT-4o / GPT-3.5' },
+                  { id: 'gemini', name: 'Google Gemini', defaultModel: 'gemini-1.5-flash', desc: 'Gemini 1.5 / 2.0' },
+                  { id: 'groq', name: 'Groq', defaultModel: 'llama-3.3-70b-versatile', desc: 'Ultra-fast Llama 3' },
+                ].map((prov) => (
+                  <button
+                    key={prov.id}
+                    type="button"
+                    onClick={() => {
+                      setTempProvider(prov.id);
+                      setTempModel(prov.defaultModel);
+                    }}
+                    style={{
+                      padding: '12px 10px', borderRadius: '12px',
+                      background: tempProvider === prov.id ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)',
+                      border: tempProvider === prov.id ? '2px solid #6366f1' : '1px solid rgba(255,255,255,0.08)',
+                      color: tempProvider === prov.id ? '#fff' : '#94a3b8',
+                      cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800 }}>{prov.name}</div>
+                    <div style={{ fontSize: '0.7rem', color: tempProvider === prov.id ? '#a5b4fc' : '#64748b', marginTop: '2px' }}>{prov.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Model Input/Select */}
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '8px' }}>
+                Select AI Model
+              </label>
+              <select
+                value={tempModel}
+                onChange={(e) => setTempModel(e.target.value)}
+                style={{
+                  width: '100%', padding: '12px', borderRadius: '12px',
+                  background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)',
+                  color: '#f8fafc', fontSize: '0.88rem', outline: 'none'
+                }}
+              >
+                {tempProvider === 'openai' && (
+                  <>
+                    <option value="gpt-4o-mini" style={{ background: '#1e293b' }}>GPT-4o Mini (Fast & Smart)</option>
+                    <option value="gpt-4o" style={{ background: '#1e293b' }}>GPT-4o (Most Powerful)</option>
+                    <option value="gpt-3.5-turbo" style={{ background: '#1e293b' }}>GPT-3.5 Turbo</option>
+                  </>
+                )}
+                {tempProvider === 'gemini' && (
+                  <>
+                    <option value="gemini-1.5-flash" style={{ background: '#1e293b' }}>Gemini 1.5 Flash (Recommended)</option>
+                    <option value="gemini-1.5-pro" style={{ background: '#1e293b' }}>Gemini 1.5 Pro</option>
+                    <option value="gemini-2.0-flash" style={{ background: '#1e293b' }}>Gemini 2.0 Flash</option>
+                  </>
+                )}
+                {tempProvider === 'groq' && (
+                  <>
+                    <option value="llama-3.3-70b-versatile" style={{ background: '#1e293b' }}>Llama 3.3 70B (Versatile)</option>
+                    <option value="mixtral-8x7b-32768" style={{ background: '#1e293b' }}>Mixtral 8x7B</option>
+                  </>
+                )}
+              </select>
+            </div>
+
+            {/* API Key Input */}
+            <div style={{ marginBottom: '22px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#cbd5e1' }}>
+                  {tempProvider.toUpperCase()} API Key
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowKeyPassword(!showKeyPassword)}
+                  style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  {showKeyPassword ? 'Hide Key' : 'Show Key'}
+                </button>
+              </div>
+              <input
+                type={showKeyPassword ? 'text' : 'password'}
+                placeholder={
+                  tempProvider === 'openai' ? 'sk-proj-xxxxxxxx...' :
+                  tempProvider === 'gemini' ? 'AIzaSyxxxxxxx...' : 'gsk_xxxxxxx...'
+                }
+                value={tempApiKey}
+                onChange={(e) => setTempApiKey(e.target.value)}
+                style={{
+                  width: '100%', padding: '12px 14px', borderRadius: '12px',
+                  background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(99,102,241,0.3)',
+                  color: '#f8fafc', fontSize: '0.88rem', fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box'
+                }}
+              />
+              <span style={{ display: 'block', fontSize: '0.72rem', color: '#64748b', marginTop: '6px' }}>
+                🔒 Your API Key is saved locally in your browser session and sent securely to your tutor service.
+              </span>
+            </div>
+
+            {/* Save / Clear Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px' }}>
+              {aiConfig.apiKey && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTempApiKey('');
+                    const resetConfig = { apiKey: '', provider: 'openai', model: 'gpt-4o-mini' };
+                    saveAiConfig(resetConfig);
+                    setAiConfigState(resetConfig);
+                    setShowAiConfigModal(false);
+                    addToast('API key cleared. Switched back to offline RAG mode.', 'info', 'Key Cleared');
+                  }}
+                  style={{
+                    padding: '12px 18px', borderRadius: '12px',
+                    background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)',
+                    color: '#ef4444', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer'
+                  }}
+                >
+                  Remove Key
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleSaveAiConfig}
+                style={{
+                  flex: 1, padding: '12px 20px', borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                  border: 'none', color: '#fff', fontSize: '0.88rem', fontWeight: 700,
+                  cursor: 'pointer', boxShadow: '0 4px 15px rgba(99,102,241,0.4)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                }}
+              >
+                <Check size={16} /> Save & Activate AI Chatbot
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
