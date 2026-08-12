@@ -1,56 +1,74 @@
-# IntelliLearn — AI Learning Platform with Intelligent Tutor
+# ⚡ IntelliLearn — AI-Powered Microservices Learning Platform
 
-> A scalable, microservices-based learning management platform featuring an AI-powered Retrieval-Augmented Generation (RAG) tutor for personalized student learning.
+> A modern, enterprise-grade Learning Management & Tutoring System built on a **Microservices Architecture** with an integrated **AI Tutor (RAG Engine)**, **Role-Based Workflows (Student & Instructor)**, and **Keycloak SSO Authentication**.
 
-[![Java](https://img.shields.io/badge/Java-17-orange.svg?style=flat-square&logo=openjdk)](https://www.oracle.com/java/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.2-brightgreen.svg?style=flat-square&logo=springboot)](https://spring.io/projects/spring-boot)
-[![MongoDB](https://img.shields.io/badge/MongoDB-7.0-47A248.svg?style=flat-square&logo=mongodb)](https://www.mongodb.com/)
-[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED.svg?style=flat-square&logo=docker)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Build Status](https://img.shields.io/badge/Build-Passing-success.svg?style=flat-square)]()
-
----
-
-## Project Overview
-
-**IntelliLearn** is an intelligent microservices-based Learning Management System (LMS) designed for higher education and online learning. The platform pairs standard course administration, assessment, and progress tracking with an AI-driven Intelligent Tutor powered by **Retrieval-Augmented Generation (RAG)**. This architecture allows students to receive real-time, context-aware tutoring and instant explanations based directly on course materials provided by instructors.
-
-The platform was intentionally constructed using a **Microservices Architecture** rather than a traditional monolithic design to achieve key software engineering goals:
-- **Scalability**: High-throughput components (such as course access and AI tutoring requests) can scale independently without bottlenecking core user authentication.
-- **Fault Isolation**: Outages in non-critical services (e.g., progress analytics) do not impede core learning activities like reading course materials or taking quizzes.
-- **Independent Ownership & Deployment**: Distributed development teams can build, test, and deploy independent services without merge conflicts or cross-domain dependency locks.
+[![Java 17](https://img.shields.io/badge/Java-17-orange.svg?style=for-the-badge&logo=openjdk)](https://www.oracle.com/java/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.2-6DB33F.svg?style=for-the-badge&logo=springboot)](https://spring.io/projects/spring-boot)
+[![Node.js](https://img.shields.io/badge/Node.js-20.x-339933.svg?style=for-the-badge&logo=nodedotjs)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-19.0-61DAFB.svg?style=for-the-badge&logo=react)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-8.2-646CFF.svg?style=for-the-badge&logo=vite)](https://vitejs.dev/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-7.0-47A248.svg?style=for-the-badge&logo=mongodb)](https://www.mongodb.com/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg?style=for-the-badge&logo=docker)](https://www.docker.com/)
+[![Keycloak](https://img.shields.io/badge/Keycloak-22.0-4D5680.svg?style=for-the-badge&logo=keycloak)](https://www.keycloak.org/)
 
 ---
 
-## System Architecture
+## 🌟 Executive Overview
 
-All incoming client requests pass through the central **API Gateway** before being routed to downstream microservices. Downstream microservices communicate independently with dedicated database instances hosted on **MongoDB**.
+**IntelliLearn** is an intelligent, full-stack microservices platform designed for modern higher education and online learning. The system pairs course administration, assessment, and real-time student analytics with an **AI-driven Intelligent Tutor** powered by **Retrieval-Augmented Generation (RAG)** and OpenRouter LLMs.
+
+### Why Microservices?
+- **Horizontal Scalability**: High-demand workloads (e.g. AI tutoring requests and course catalog browsing) scale independently without affecting core user authentication.
+- **Fault Isolation**: An outage in analytics or quiz logging will not prevent students from accessing learning materials or taking courses.
+- **Service Decoupling**: Independent services connect to isolated MongoDB database namespaces, enforcing strict domain boundaries.
+
+---
+
+## 🚀 Key Features
+
+### 👨‍🎓 Student Experience
+- **Interactive Course Catalog**: Browse, search, filter, and enroll in curated technology courses.
+- **AI Command Terminal**: Ask questions directly to an AI Tutor trained on course topics, request summaries, and get code explanations.
+- **Real-Time Progress Tracking**: Dynamic progress bars, course completion percentages, and milestone badges.
+- **Interactive Quiz Assessments**: Take quizzes with automated evaluation, score breakdowns, and attempt history.
+
+### 👨‍🏫 Instructor Console (Full-Screen Dashboard)
+- **Course Authoring**: Create, configure, and publish new courses with custom categories and modules.
+- **Quiz Creator**: Dynamic multi-choice quiz builder with real-time correct answer selection and option management.
+- **Submissions & Performance Analytics**: Monitor student quiz submission scores, completion dates, and overall assessment metrics.
+- **Dedicated Navigation**: Independent, role-scoped workflow preventing accidental mixing with student views.
+
+---
+
+## 🏗️ System Architecture & Data Flow
+
+All external client traffic passes through the **API Gateway** (`port 8080`), which handles rate-limiting, CORS, and OAuth2 JWT verification before proxying requests to downstream microservices.
 
 ```mermaid
 graph TD
-    Client["React Frontend Client\n(Port 3000)"]
+    Client["📱 React Frontend Client\n(Port 3000)"]
     
     subgraph Edge Layer
-        Gateway["API Gateway\n(Port 8080)\n• OAuth2 Authentication\n• CORS Policy\n• Rate Limiting (Redis)"]
+        Gateway["🌐 API Gateway\n(Port 8080)\n• Route Proxying\n• OAuth2 Security\n• Redis Rate Limiting"]
     end
     
     subgraph Microservices Layer
-        UserService["User Service\n(Port 8081)"]
-        CourseService["Course Service\n(Port 8082)"]
-        QuizService["Quiz & Assessment Service\n(Port 8083)"]
-        ProgressService["Progress Service\n(Port 8084)"]
-        TutorService["Tutor Service (RAG + LLM)\n(Port 8085)"]
+        UserService["👤 User Service\n(Port 8081 - Node.js)"]
+        CourseService["📚 Course Service\n(Port 8082 - Spring Boot)"]
+        QuizService["🧩 Quiz Service\n(Port 8083 - Spring Boot)"]
+        ProgressService["📊 Progress Service\n(Port 8084 - Spring Boot)"]
+        TutorService["🤖 AI Tutor Service (RAG)\n(Port 8085 - Spring Boot)"]
     end
     
-    subgraph Database Layer
-        MongoDB[(MongoDB Database\nuserdb, coursedb, quizdb, progressdb, tutordb)]
-        Redis[(Redis Cache\nRate Limiting)]
-        Keycloak[(Keycloak IAM\nOAuth2 SSO)]
+    subgraph Infrastructure Layer
+        MongoDB[(🍃 MongoDB Database Cluster\nuserdb, coursedb, quizdb, progressdb, tutordb)]
+        Redis[(⚡ Redis Cache\nRate Limiting)]
+        Keycloak[(🔑 Keycloak IAM\nOAuth2 & OIDC)]
     end
 
-    Client -->|HTTPS / REST| Gateway
-    Gateway -->|Redis Rate Limiter| Redis
-    Gateway -->|OAuth2 JWT Check| Keycloak
+    Client -->|REST / JSON| Gateway
+    Gateway -->|Rate Limit| Redis
+    Gateway -->|JWT Validation| Keycloak
     Gateway -->|Route /api/users, /api/auth| UserService
     Gateway -->|Route /api/courses| CourseService
     Gateway -->|Route /api/quizzes| QuizService
@@ -64,92 +82,127 @@ graph TD
     TutorService --> MongoDB
 ```
 
-### Request Flow
-1. **Client Isolation**: The React frontend client never communicates directly with internal microservices. All API traffic is routed through the central **API Gateway** on port `8080`.
-2. **Gateway Responsibility**: The Gateway enforces OAuth2 authentication, applies Cross-Origin Resource Sharing (CORS) rules, and regulates request rates before proxying calls to internal service ports.
-3. **Database Isolation**: Each microservice maintains complete data isolation by connecting to its dedicated MongoDB database namespace.
+---
+
+## 🛠️ Microservices Architecture Matrix
+
+| Service Name | Stack / Runtime | Port | Database | Primary Responsibilities |
+| :--- | :--- | :---: | :---: | :--- |
+| **`api-gateway`** | Spring Cloud Gateway | `8080` | Redis | Single entry point, CORS, rate limiting, and JWT validation |
+| **`user-service`** | Node.js / Express | `8081` | `userdb` | Authentication fallback, user registration, profiles & roles |
+| **`course-service`** | Spring Boot 3.3 | `8082` | `coursedb` | Course creation, catalog search, module management & enrollments |
+| **`quiz-service`** | Spring Boot 3.3 | `8083` | `quizdb` | Quiz builder, dynamic evaluation, submission history |
+| **`progress-service`**| Spring Boot 3.3 | `8084` | `progressdb` | Student milestone tracking, analytics, and completion percent |
+| **`tutor-service`** | Spring Boot + RAG | `8085` | `tutordb` | OpenRouter LLM integration, AI tutoring chat, content summarizer |
+| **`client`** | React 19 + Vite | `3000` | — | Single Page Application (SPA) with full mobile responsiveness |
+| **`streamlit`** | Python / Streamlit | `8501` | — | Microservice OpenAPI & Swagger Hub developer portal |
 
 ---
 
-## Tech Stack
+## 📚 OpenAPI & Swagger Documentation Hub
 
-| Layer | Technology | Description |
-| :--- | :--- | :--- |
-| **Backend Framework** | Spring Boot 3.3.2 / Java 17 | Core microservices application runtime |
-| **Database** | MongoDB 7.0 & Redis 7.0 | NoSQL document storage & key-value rate limiting cache |
-| **Security & Auth** | OAuth 2.0 (Keycloak) + Per-Service API Key (`X-API-KEY`) | Dual-layer gateway and service security filter |
-| **Frontend** | React.js (Vite) + Nginx | Single-page client web application |
-| **API Documentation** | OpenAPI 3.0 / Swagger UI (springdoc) | Interactive endpoint documentation & testing |
-| **Containerization** | Docker & Docker Compose | Ecosystem orchestration with single-command deployment |
+IntelliLearn includes an interactive **Streamlit Developer Hub** (`streamlit_app.py`) for inspecting raw OpenAPI specs and testing Swagger documentation across all microservices:
 
----
-
-## Team & Ownership Matrix
-
-| Student ID | Team Role | Assigned Microservices & Responsibilities |
-| :--- | :--- | :--- |
-| **ITBIN-2313-0137** | Backend & API Gateway Lead | `user-service`, `course-service`, `api-gateway` |
-| **ITBIN-2313-0007** | AI/RAG Services & Frontend Lead | `quiz-service`, `progress-service`, `tutor-service`, `client` |
-
-*Note: All microservices, gateway routing, container orchestration, and frontend integrations are 100% fully implemented and verified.*
+| Documentation Interface | URL |
+| :--- | :--- |
+| **Streamlit OpenAPI Hub** | [http://localhost:8501](http://localhost:8501) |
+| **API Gateway Aggregated Swagger** | [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) |
+| **User Service Swagger** | [http://localhost:8081/swagger-ui.html](http://localhost:8081/swagger-ui.html) |
+| **Course Service Swagger** | [http://localhost:8082/swagger-ui.html](http://localhost:8082/swagger-ui.html) |
+| **Quiz Service Swagger** | [http://localhost:8083/swagger-ui.html](http://localhost:8083/swagger-ui.html) |
+| **Progress Service Swagger** | [http://localhost:8084/swagger-ui.html](http://localhost:8084/swagger-ui.html) |
+| **AI Tutor Service Swagger** | [http://localhost:8085/swagger-ui.html](http://localhost:8085/swagger-ui.html) |
 
 ---
 
-## Microservices Breakdown & Swagger UI Links
+## 💻 Tech Stack & Engineering Tools
 
-| Microservice | Port | Database | Key Endpoints | Swagger UI URL |
-| :--- | :---: | :---: | :--- | :--- |
-| **API Gateway** | `8080` | Redis | `/gateway/health`, `/api/**` | `http://localhost:8080/gateway/health` |
-| **User Service** | `8081` | MongoDB (`userdb`) | `/api/users`, `/api/auth/login`, `/api/auth/register` | [http://localhost:8081/swagger-ui.html](http://localhost:8081/swagger-ui.html) |
-| **Course Service** | `8082` | MongoDB (`coursedb`) | `/api/courses`, `/api/courses/{id}`, `/api/courses/{id}/enroll` | [http://localhost:8082/swagger-ui.html](http://localhost:8082/swagger-ui.html) |
-| **Quiz Service** | `8083` | MongoDB (`quizdb`) | `/api/quizzes`, `/api/quizzes/{id}/submit`, `/api/quizzes/{id}/attempts/{userId}` | [http://localhost:8083/swagger-ui.html](http://localhost:8083/swagger-ui.html) |
-| **Progress Service** | `8084` | MongoDB (`progressdb`) | `/api/progress`, `/api/progress/{userId}`, `/api/progress/{userId}/{courseId}` | [http://localhost:8084/swagger-ui.html](http://localhost:8084/swagger-ui.html) |
-| **AI Tutor Service** | `8085` | MongoDB (`tutordb`) | `/api/tutor/ask`, `/api/tutor/summarize`, `/api/tutor/health` | [http://localhost:8085/swagger-ui.html](http://localhost:8085/swagger-ui.html) |
-| **React Client** | `3000` | Nginx Static | Frontend user interface | [http://localhost:3000](http://localhost:3000) |
+- **Frontend**: React 19, React Router v7, Lucide Icons, Vanilla CSS (Design Tokens, Glassmorphism, Responsive Grid System)
+- **Backend & Gateway**: Java 17, Spring Boot 3.3.2, Spring Cloud Gateway, Node.js Express
+- **Databases & Cache**: MongoDB Atlas / Local MongoDB 7.0, Redis 7.0
+- **AI / LLM**: OpenRouter API (RAG Engine + Topic Summarizer)
+- **Security**: Keycloak SSO (OAuth2 / OpenID Connect) + `X-API-KEY` microservice filter
+- **DevOps & Orchestration**: Docker, Docker Compose, Nginx
 
 ---
 
-## Quick Start (Docker Compose Deployment)
+## ⚡ Quick Start & Deployment Guide
 
 ### Prerequisites
-- Docker Engine 24+
-- Docker Compose v2+
+- [Docker Engine 24+](https://docs.docker.com/engine/install/)
+- [Docker Compose v2+](https://docs.docker.com/compose/install/)
+- Node.js 20+ (for local client development)
 
-### Running the Ecosystem
-To build and start all 10 containers simultaneously, run:
+### 1. Run via Docker Compose (Recommended)
+
+To launch the complete ecosystem (10 containers) in detached mode:
 
 ```bash
 docker compose up -d --build
 ```
 
-### Verify Container Status
-Check that all 10 containers are running:
-
+#### Verify Running Containers
 ```bash
 docker compose ps
 ```
 
 Expected containers:
-1. `api-gateway` (Port 8080)
-2. `client` (Port 3000)
-3. `user-service` (Port 8081)
-4. `course-service` (Port 8082)
-5. `quiz-service` (Port 8083)
-6. `progress-service` (Port 8084)
-7. `tutor-service` (Port 8085)
-8. `mongodb` (Port 27017)
-9. `redis` (Port 6379)
-10. `keycloak` (Port 8180)
+- `api-gateway` (`:8080`)
+- `client` (`:3000`)
+- `user-service` (`:8081`)
+- `course-service` (`:8082`)
+- `quiz-service` (`:8083`)
+- `progress-service` (`:8084`)
+- `tutor-service` (`:8085`)
+- `mongodb` (`:27017`)
+- `redis` (`:6379`)
+- `keycloak` (`:8180`)
 
 ---
 
-## API Key Headers & Credentials
+### 2. Local Frontend Development
 
-- **API Gateway Entry Point**: `http://localhost:8080`
-- **Centralized Security Header**: `X-API-KEY`
-- **Development Service Keys**:
-  - User Service: `user-service-secret-key-123`
-  - Course Service: `course-service-secret-key-456`
-  - Quiz Service: `quiz-service-secret-key-101`
-  - Progress Service: `progress-service-secret-key-789`
-  - Tutor Service: `tutor-service-secret-key-999`
+If you prefer running the React client locally while microservices run in Docker:
+
+```bash
+# Navigate to client directory
+cd client
+
+# Install dependencies
+npm install
+
+# Start Vite development server
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## 👥 Team & Ownership Matrix
+
+| Student ID | Team Role | Core Responsibilities & Microservices |
+| :--- | :--- | :--- |
+| **ITBIN-2313-0137** | Backend & API Gateway Lead | `user-service`, `course-service`, `api-gateway`, Security Filter |
+| **ITBIN-2313-0007** | AI/RAG Services & Frontend Lead | `quiz-service`, `progress-service`, `tutor-service`, `client` SPA |
+
+---
+
+## 🔒 Security & Environment Variables
+
+Key service security headers:
+- **Gateway Entry**: `http://localhost:8080`
+- **Microservice Key Header**: `X-API-KEY`
+
+| Service | Environment Variable | Default Development Value |
+| :--- | :--- | :--- |
+| **User Service** | `USER_SERVICE_API_KEY` | `user-service-secret-key-123` |
+| **Course Service** | `COURSE_SERVICE_API_KEY` | `course-service-secret-key-456` |
+| **Progress Service** | `PROGRESS_SERVICE_API_KEY` | `progress-service-secret-key-789` |
+| **AI Tutor Service** | `OPENROUTER_API_KEY` | *(Set in `.env`)* |
+
+---
+
+## 📄 License
+
+Distributed under the **MIT License**. See `LICENSE` for details.
