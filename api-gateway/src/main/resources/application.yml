@@ -25,6 +25,7 @@ spring:
             allowedOrigins:
               - "http://localhost:3000"
               - "http://localhost:5173"
+              - "http://localhost:8501"
             allowedMethods:
               - GET
               - POST
@@ -116,3 +117,90 @@ spring:
                 redis-rate-limiter.replenishRate: 5
                 redis-rate-limiter.burstCapacity: 10
                 key-resolver: "#{@ipKeyResolver}"
+
+        # --- Swagger & OpenAPI Gateway Routes ---
+        - id: user-service-docs
+          uri: ${USER_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/user-service/v3/api-docs/**
+          filters:
+            - RewritePath=/user-service/(?<segment>.*), /$\{segment}
+
+        - id: user-service-swagger
+          uri: ${USER_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/user-service/swagger-ui/**
+          filters:
+            - RewritePath=/user-service/(?<segment>.*), /$\{segment}
+
+        - id: course-service-docs
+          uri: ${COURSE_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/course-service/v3/api-docs/**
+          filters:
+            - RewritePath=/course-service/(?<segment>.*), /$\{segment}
+
+        - id: course-service-swagger
+          uri: ${COURSE_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/course-service/swagger-ui/**
+          filters:
+            - RewritePath=/course-service/(?<segment>.*), /$\{segment}
+
+        - id: quiz-service-docs
+          uri: ${QUIZ_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/quiz-service/v3/api-docs/**
+          filters:
+            - RewritePath=/quiz-service/(?<segment>.*), /$\{segment}
+
+        - id: quiz-service-swagger
+          uri: ${QUIZ_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/quiz-service/swagger-ui/**
+          filters:
+            - RewritePath=/quiz-service/(?<segment>.*), /$\{segment}
+
+        - id: progress-service-docs
+          uri: ${PROGRESS_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/progress-service/v3/api-docs/**
+          filters:
+            - RewritePath=/progress-service/(?<segment>.*), /$\{segment}
+
+        - id: progress-service-swagger
+          uri: ${PROGRESS_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/progress-service/swagger-ui/**
+          filters:
+            - RewritePath=/progress-service/(?<segment>.*), /$\{segment}
+
+        - id: tutor-service-docs
+          uri: ${TUTOR_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/tutor-service/v3/api-docs/**
+          filters:
+            - RewritePath=/tutor-service/(?<segment>.*), /$\{segment}
+
+        - id: tutor-service-swagger
+          uri: ${TUTOR_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/tutor-service/swagger-ui/**
+          filters:
+            - RewritePath=/tutor-service/(?<segment>.*), /$\{segment}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    urls:
+      - name: 1. User Service
+        url: /user-service/v3/api-docs
+      - name: 2. Course Service
+        url: /course-service/v3/api-docs
+      - name: 3. Quiz Service
+        url: /quiz-service/v3/api-docs
+      - name: 4. Progress Service
+        url: /progress-service/v3/api-docs
+      - name: 5. AI Tutor Service
+        url: /tutor-service/v3/api-docs
+

@@ -27,8 +27,24 @@ public class SecurityConfig {
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .pathMatchers("/gateway/health", "/api/auth/**", "/api/courses/**", "/api/progress/**", "/api/quizzes/**", "/api/tutor/**")
-                        .permitAll()
+                        .pathMatchers(
+                                "/gateway/health",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/v3/api-docs",
+                                "/webjars/**",
+                                "/user-service/**",
+                                "/course-service/**",
+                                "/quiz-service/**",
+                                "/progress-service/**",
+                                "/tutor-service/**",
+                                "/api/auth/**",
+                                "/api/courses/**",
+                                "/api/progress/**",
+                                "/api/quizzes/**",
+                                "/api/tutor/**"
+                        ).permitAll()
                         .pathMatchers("/api/**").authenticated()
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
@@ -44,7 +60,12 @@ public class SecurityConfig {
     private ServerAuthenticationEntryPoint customAuthenticationEntryPoint() {
         return (exchange, ex) -> {
             String path = exchange.getRequest().getURI().getPath();
-            if (path.startsWith("/api/auth/") || path.startsWith("/api/courses") || path.startsWith("/api/progress") || path.startsWith("/api/quizzes") || path.startsWith("/api/tutor") || path.equals("/gateway/health")) {
+            if (path.startsWith("/api/auth/") || path.startsWith("/api/courses") || path.startsWith("/api/progress")
+                    || path.startsWith("/api/quizzes") || path.startsWith("/api/tutor") || path.equals("/gateway/health")
+                    || path.startsWith("/swagger-ui") || path.startsWith("/v3/api-docs") || path.startsWith("/webjars")
+                    || path.startsWith("/user-service") || path.startsWith("/course-service")
+                    || path.startsWith("/quiz-service") || path.startsWith("/progress-service")
+                    || path.startsWith("/tutor-service")) {
                 return Mono.empty();
             }
 
