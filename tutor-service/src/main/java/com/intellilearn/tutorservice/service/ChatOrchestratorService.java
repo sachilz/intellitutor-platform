@@ -3,7 +3,7 @@ package com.intellilearn.tutorservice.service;
 import com.intellilearn.tutorservice.dto.ChatMessageRequest;
 import com.intellilearn.tutorservice.dto.ChatMessageResponse;
 import com.intellilearn.tutorservice.entity.ChatSession;
-import com.intellilearn.tutorservice.service.llm.LlmService;
+import com.intellilearn.tutorservice.service.LlmService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -92,7 +92,14 @@ public class ChatOrchestratorService {
         promptBuilder.append("\nINSTRUCTIONS: Answer the user question concisely, accurately, and naturally. ");
         promptBuilder.append("If this question pertains to the active course, ensure your answer addresses the relevant course topics accurately.");
 
-        String rawAnswer = llmService.generateCompletion(promptBuilder.toString());
+        String rawAnswer;
+        try {
+            rawAnswer = llmService.generateResponse(promptBuilder.toString(), courseId, null, null, null);
+        } catch (Exception e) {
+            log.error("Failed to generate LLM response", e);
+            rawAnswer = "";
+        }
+        
         String finalAnswer = formatLlmAnswer(rawAnswer, category, msg, courseId, courseTitle, troubleshooting);
 
         memoryService.addMessage(session, "AI", finalAnswer, category);
@@ -105,7 +112,7 @@ public class ChatOrchestratorService {
                 webSearchUsed,
                 sources,
                 troubleshooting,
-                llmService.getActiveProviderName()
+                "OpenRouter/Configured-LLM"
         );
     }
 
@@ -115,7 +122,7 @@ public class ChatOrchestratorService {
         }
 
         if ("PROJECT_TROUBLESHOOTING".equals(category) && troubles != null) {
-            return "🔧 **Project Troubleshooting Analysis**\n\n" +
+            return "**Project Troubleshooting Analysis**\n\n" +
                     "**Likely Cause:** " + troubles.getLikelyCause() + "\n\n" +
                     "**Recommended Diagnostic Checks:**\n" +
                     String.join("\n", troubles.getRecommendedChecks().stream().map(c -> "• " + c).toList()) + "\n\n" +
@@ -129,7 +136,7 @@ public class ChatOrchestratorService {
         // Machine Learning Specialization & ML Courses
         if (cid.contains("c_coursera_2") || cid.contains("c_udemy_1") || cid.contains("c_coursera_8") || cid.contains("machine-learning") || title.toLowerCase().contains("machine learning")) {
             if (q.contains("module 1") || q.contains("supervised") || q.contains("regression") || q.contains("explain")) {
-                return "🤖 **" + title + " — Supervised Learning & Regression**\n\n" +
+                return "**" + title + " — Supervised Learning & Regression**\n\n" +
                         "Supervised Learning is the cornerstone of modern Machine Learning:\n\n" +
                         "• **Linear Regression**: Predicts continuous numerical targets using cost functions (Mean Squared Error) and Gradient Descent minimization: `J(w,b) = (1/2m) ∑ (f(x) - y)²`.\n" +
                         "• **Logistic Regression**: Used for binary classification, mapping outputs through the Sigmoid activation function: `g(z) = 1 / (1 + e^-z)`.\n" +
@@ -137,13 +144,13 @@ public class ChatOrchestratorService {
                         "How can I assist your study session on this topic today?";
             }
             if (q.contains("quiz") || q.contains("practice") || q.contains("test")) {
-                return "📝 **Practice Knowledge Assessment — " + title + "**\n\n" +
+                return "**Practice Knowledge Assessment — " + title + "**\n\n" +
                         "**Question 1**: What is the primary purpose of the Cost Function `J(w,b)` in Linear Regression?\n" +
                         "• *Answer*: It measures the error between predicted outputs `f(x)` and true targets `y`, allowing Gradient Descent to optimize parameter weights `w` and bias `b`.\n\n" +
                         "**Question 2**: How does Regularization (`λ`) prevent Overfitting?\n" +
                         "• *Answer*: By penalizing large weight magnitudes in the loss function, reducing model complexity.";
             }
-            return "🤖 **" + title + " AI Assistant**\n\n" +
+            return "**" + title + " AI Assistant**\n\n" +
                     "Welcome to your AI Tutor for **" + title + "**! Key topics covered:\n" +
                     "• **Supervised Learning**: Linear/Logistic Regression, Cost Functions, & Gradient Descent.\n" +
                     "• **Advanced Algorithms**: Multi-layer Neural Networks, Decision Trees, Random Forests, & XGBoost.\n" +
@@ -154,14 +161,14 @@ public class ChatOrchestratorService {
         // Generative AI & Large Language Models Courses
         if (cid.contains("c_coursera_3") || cid.contains("c_coursera_7") || cid.contains("c_udemy_2") || cid.contains("c_udemy_3") || cid.contains("c_udemy_8") || cid.contains("c_google_1") || title.toLowerCase().contains("generative") || title.toLowerCase().contains("llm") || title.toLowerCase().contains("prompt")) {
             if (q.contains("module 1") || q.contains("transformer") || q.contains("attention") || q.contains("explain")) {
-                return "✨ **" + title + " — Transformer Architecture & LLM Foundations**\n\n" +
+                return "**" + title + " — Transformer Architecture & LLM Foundations**\n\n" +
                         "Generative AI models rely on the Transformer architecture (*Attention Is All You Need*):\n\n" +
                         "• **Self-Attention Mechanism**: Calculates relationship weights between input tokens using Query (Q), Key (K), and Value (V) matrices: `Attention(Q,K,V) = softmax(QKᵀ / √dₖ) V`.\n" +
                         "• **Fine-Tuning (PEFT / LoRA)**: Parameter-Efficient Fine-Tuning freezes original model weights and injects trainable low-rank decomposition matrices, reducing memory by up to 90%.\n" +
                         "• **RAG Architecture**: Combines Dense Vector Embeddings (ChromaDB / Pinecone) with LLMs to supply real-time domain knowledge without re-training.\n\n" +
                         "How would you like to explore this topic further?";
             }
-            return "✨ **" + title + " AI Assistant**\n\n" +
+            return "**" + title + " AI Assistant**\n\n" +
                     "Welcome to your Generative AI Tutor for **" + title + "**!\n" +
                     "• **LLM Core**: Transformer encoders/decoders, Self-Attention, & token embeddings.\n" +
                     "• **Prompt Engineering**: Persona, Few-Shot, & ReAct reasoning patterns.\n" +
@@ -171,7 +178,7 @@ public class ChatOrchestratorService {
 
         // Deep Learning & PyTorch Courses
         if (cid.contains("c_coursera_4") || cid.contains("c_udemy_4") || title.toLowerCase().contains("deep learning") || title.toLowerCase().contains("pytorch")) {
-            return "🧠 **" + title + " AI Assistant**\n\n" +
+            return "**" + title + " AI Assistant**\n\n" +
                     "Welcome! This course covers Deep Learning and Neural Network architectures:\n" +
                     "• **Neural Network Building**: Forward propagation, Activation functions (ReLU, Sigmoid), & Backpropagation.\n" +
                     "• **Convolutional Networks (CNNs)**: Image classification, ResNet skip connections, & object detection.\n" +
@@ -181,7 +188,7 @@ public class ChatOrchestratorService {
 
         // Web Development & Computer Science Courses
         if (cid.contains("c_udemy_7") || cid.contains("c_meta_1") || cid.contains("c_edx_1") || title.toLowerCase().contains("web development") || title.toLowerCase().contains("front-end") || title.toLowerCase().contains("computer science")) {
-            return "🌐 **" + title + " AI Assistant**\n\n" +
+            return "**" + title + " AI Assistant**\n\n" +
                     "Welcome! I am your AI Tutor for **" + title + "**:\n" +
                     "• **Frontend**: Modern HTML5, CSS Flexbox/Grid, Responsive Design, JavaScript ES6+, & React Components.\n" +
                     "• **Backend & DB**: Node.js, Express RESTful APIs, Middleware, and Relational Databases (SQL/PostgreSQL).\n" +
@@ -191,7 +198,15 @@ public class ChatOrchestratorService {
 
         // IBM Data Science
         if (cid.contains("c_coursera_5") || cid.contains("ibm-data-science") || title.toLowerCase().contains("ibm data science")) {
-            return "📊 **IBM Data Science Professional Certificate**\n\n" +
+            if (q.contains("module 1") || q.contains("what is data science")) {
+                return "**IBM Data Science — Module 1: What is Data Science?**\n\n" +
+                        "Module 1 introduces the field of Data Science, exploring its methodology, business applications, and key practitioner roles:\n\n" +
+                        "• **What is Data Science?**: The interdisciplinary field combining Domain Expertise, Programming (Python/R), and Statistics to extract actionable insights from structured & unstructured data.\n" +
+                        "• **Data Science vs Machine Learning**: Data Science covers the entire data lifecycle (collection, wrangling, exploration, modeling, & communication), whereas Machine Learning focuses specifically on algorithmic model training.\n" +
+                        "• **Key Tools Introduced**: Jupyter Notebooks, RStudio, IBM Watson Studio, Pandas, & SQL.\n\n" +
+                        "How can I help you explore Module 1 concepts or code exercises?";
+            }
+            return "**IBM Data Science Professional Certificate**\n\n" +
                     "Welcome! This program covers end-to-end Data Science & Analytics:\n" +
                     "• **Python & SQL**: Data structures, functions, Pandas DataFrames, and SQL relational queries.\n" +
                     "• **Data Visualization**: Matplotlib, Seaborn, & Folium interactive geospatial maps.\n" +
@@ -201,7 +216,7 @@ public class ChatOrchestratorService {
 
         // AI For Everyone
         if (cid.contains("c_coursera_1") || cid.contains("ai-for-everyone") || title.toLowerCase().contains("ai for everyone")) {
-            return "💡 **AI For Everyone (Andrew Ng)**\n\n" +
+            return "**AI For Everyone (Andrew Ng)**\n\n" +
                     "This course provides a non-technical introduction to Artificial Intelligence:\n" +
                     "• **Supervised Learning**: Mapping input (X) to output (Y) using labeled datasets.\n" +
                     "• **Machine Learning vs Data Science**: Building predictive models vs analyzing data to drive strategic decisions.\n" +
@@ -211,7 +226,7 @@ public class ChatOrchestratorService {
 
         // Google Cybersecurity
         if (cid.contains("c_coursera_6") || cid.contains("cybersecurity") || title.toLowerCase().contains("cybersecurity")) {
-            return "🛡️ **Google Cybersecurity Professional Certificate**\n\n" +
+            return "**Google Cybersecurity Professional Certificate**\n\n" +
                     "This program covers foundational security defenses:\n" +
                     "• **SIEM Tools**: Security Information & Event Management (Chronicle & Splunk).\n" +
                     "• **Linux & SQL**: File permissions, shell pipelines, & querying database logs.\n" +
@@ -221,7 +236,7 @@ public class ChatOrchestratorService {
 
         // Platform architecture
         if ("PROJECT_SPECIFIC".equals(category) || q.contains("intellitutor") || q.contains("microservice")) {
-            return "🟢 **IntelliTutor Project Architecture**\n\n" +
+            return "**IntelliTutor Project Architecture**\n\n" +
                     "IntelliTutor is an educational cloud-native LMS platform built with 5 Spring Boot microservices:\n" +
                     "• **api-gateway** (Port 8080): Centralized routing, Keycloak OAuth2 JWT security, & Redis rate limiting.\n" +
                     "• **user-service** (Port 8081): Auth & profile management.\n" +
@@ -233,7 +248,7 @@ public class ChatOrchestratorService {
 
         // Generic Course Fallback
         String topicQuery = (query != null && !query.isBlank()) ? query : "course concepts";
-        return "📚 **" + title + " — AI Tutor Assistant**\n\n" +
+        return "**" + title + " — AI Tutor Assistant**\n\n" +
                 "Here is an overview of **" + topicQuery + "** in **" + title + "**:\n\n" +
                 "• **Key Focus**: Mastering foundational principles, practical techniques, and real-world applications.\n" +
                 "• **Core Takeaway**: Understanding the underlying theory and building hands-on skills step-by-step.\n" +

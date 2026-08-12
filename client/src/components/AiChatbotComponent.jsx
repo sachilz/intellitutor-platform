@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+
 import { sendChatMessage, clearChatSession } from '../api/tutorApi';
 import MarkdownRenderer from '../utils/markdownRenderer';
 import {
@@ -19,56 +20,111 @@ import {
   BarChart3
 } from 'lucide-react';
 
-const RECOMMENDED_CATEGORIES = [
-  {
-    id: 'LEARN',
-    label: 'Learn',
-    icon: BookOpen,
-    color: '#818cf8',
-    questions: [
+const getRecommendedCategories = (courseCategory) => {
+  let learnQuestions = [
+    'Explain the core concepts of this course',
+    'What are the most important topics?',
+    'Give me a summary of module 1',
+    'What should I practice before the quiz?'
+  ];
+
+  if (courseCategory === 'GenAI') {
+    learnQuestions = [
+      'Explain Large Language Models (LLMs)',
+      'What is Prompt Engineering?',
+      'How does a Transformer architecture work?',
+      'Explain Fine-Tuning vs RAG'
+    ];
+  } else if (courseCategory === 'AI & ML') {
+    learnQuestions = [
+      'Difference between Supervised & Unsupervised Learning?',
+      'Explain Neural Networks simply',
+      'What is Gradient Descent?',
+      'How do Convolutional Neural Networks work?'
+    ];
+  } else if (courseCategory === 'Data Science') {
+    learnQuestions = [
+      'Key differences between pandas and NumPy?',
+      'Explain the data cleaning process',
+      'How do I handle missing data?',
+      'What is Exploratory Data Analysis (EDA)?'
+    ];
+  } else if (courseCategory === 'Web Dev') {
+    learnQuestions = [
+      'Explain the difference between React and Angular',
+      'What are React Hooks?',
+      'Explain CSS Flexbox vs Grid',
+      'How does Node.js event loop work?'
+    ];
+  } else if (courseCategory === 'DevOps & Cloud') {
+    learnQuestions = [
+      'What is CI/CD?',
+      'Docker containers vs Virtual Machines',
+      'How does Kubernetes orchestration work?',
+      'Benefits of AWS serverless architecture?'
+    ];
+  } else if (courseCategory === 'Security') {
+    learnQuestions = [
+      'What is Cross-Site Scripting (XSS)?',
+      'Explain SQL Injection and how to prevent it',
+      'Difference between Authentication and Authorization?',
+      'Explain public-key cryptography'
+    ];
+  } else if (!courseCategory || courseCategory === 'Computer Science' || courseCategory === 'Java' || courseCategory === 'Software Engineering') {
+    learnQuestions = [
       'Explain polymorphism with a simple Java example',
       'What are the 4 pillars of Object-Oriented Programming?',
       'Explain Spring Boot dependency injection',
       'What is the difference between SQL and NoSQL databases?'
-    ]
-  },
-  {
-    id: 'PLATFORM',
-    label: 'Platform',
-    icon: Compass,
-    color: '#34d399',
-    questions: [
-      'How does IntelliTutor track my learning progress?',
-      'What happens when I submit a practice quiz?',
-      'How do I bookmark and enroll in new courses?',
-      'How does Keycloak authenticate student accounts?'
-    ]
-  },
-  {
-    id: 'ARCHITECTURE',
-    label: 'Architecture',
-    icon: Layers,
-    color: '#fbbf24',
-    questions: [
-      'How does the API Gateway route microservice requests?',
-      'Why does the gateway use Redis for rate limiting?',
-      'How are all microservices orchestrated in Docker Compose?',
-      'Why is my quiz request returning 401 Unauthorized?'
-    ]
-  },
-  {
-    id: 'AI',
-    label: 'AI Capabilities',
-    icon: Cpu,
-    color: '#c084fc',
-    questions: [
-      'How does the AI Tutor use course document knowledge?',
-      'When does the AI Assistant fetch live web sources?',
-      'How does the chatbot remember our previous conversation?',
-      'How does the AI Tutor diagnose technical platform errors?'
-    ]
+    ];
   }
-];
+
+  return [
+    {
+      id: 'LEARN',
+      label: 'Learn',
+      icon: BookOpen,
+      color: '#818cf8',
+      questions: learnQuestions
+    },
+    {
+      id: 'PLATFORM',
+      label: 'Platform',
+      icon: Compass,
+      color: '#34d399',
+      questions: [
+        'How does IntelliTutor track my learning progress?',
+        'What happens when I submit a practice quiz?',
+        'How do I bookmark and enroll in new courses?',
+        'How does Keycloak authenticate student accounts?'
+      ]
+    },
+    {
+      id: 'ARCHITECTURE',
+      label: 'Architecture',
+      icon: Layers,
+      color: '#fbbf24',
+      questions: [
+        'How does the API Gateway route microservice requests?',
+        'Why does the gateway use Redis for rate limiting?',
+        'How are all microservices orchestrated in Docker Compose?',
+        'Why is my quiz request returning 401 Unauthorized?'
+      ]
+    },
+    {
+      id: 'AI',
+      label: 'AI Capabilities',
+      icon: Cpu,
+      color: '#c084fc',
+      questions: [
+        'How does the AI Tutor use course document knowledge?',
+        'When does the AI Assistant fetch live web sources?',
+        'How does the chatbot remember our previous conversation?',
+        'How does the AI Tutor diagnose technical platform errors?'
+      ]
+    }
+  ];
+};
 
 export default function AiChatbotComponent({
   courseId = 'general',
@@ -80,8 +136,8 @@ export default function AiChatbotComponent({
     {
       sender: 'ai',
       text: courseTitle
-        ? `👋 Welcome to **${courseTitle}**!\nI am your AI Assistant for this course. Ask me anything about course modules, technical concepts, practice quizzes, or learning paths.`
-        : "👋 Hi! I'm your **IntelliTutor AI Assistant**.\nAsk me anything about your courses, programming concepts, platform architecture, troubleshooting errors, or learning paths.",
+        ? `Welcome to **${courseTitle}**!\nI am your AI Assistant for this course. Ask me anything about course modules, technical concepts, practice quizzes, or learning paths.`
+        : "Hi! I'm your **IntelliTutor AI Assistant**.\nAsk me anything about your courses, programming concepts, platform architecture, troubleshooting errors, or learning paths.",
       category: 'PROJECT_SPECIFIC',
       sourceType: 'PROJECT',
       webSearchUsed: false,
@@ -180,7 +236,7 @@ export default function AiChatbotComponent({
     if (msg.category === 'PROJECT_TROUBLESHOOTING') {
       return (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', color: '#fde68a', padding: '0.2rem 0.55rem', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 600, marginBottom: '6px' }}>
-          <Wrench size={12} color="#fbbf24" /> 🔧 Troubleshooter Mode
+          <Wrench size={12} color="#fbbf24" /> Troubleshooter Mode
         </span>
       );
     }
@@ -188,7 +244,7 @@ export default function AiChatbotComponent({
     if (msg.webSearchUsed) {
       return (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#7dd3fc', padding: '0.2rem 0.55rem', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 600, marginBottom: '6px' }}>
-          <Globe size={12} color="#38bdf8" /> 🌐 Web Source
+          <Globe size={12} color="#38bdf8" /> Web Source
         </span>
       );
     }
@@ -196,7 +252,7 @@ export default function AiChatbotComponent({
     if (msg.sourceType === 'PROJECT') {
       return (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(99, 102, 241, 0.3)', color: '#c7d2fe', padding: '0.2rem 0.55rem', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 600, marginBottom: '6px' }}>
-          <BookOpen size={12} color="#818cf8" /> 📚 {courseTitle ? courseTitle : 'IntelliTutor Course Material'}
+          <BookOpen size={12} color="#818cf8" /> {courseTitle ? courseTitle : 'IntelliTutor Course Material'}
         </span>
       );
     }
@@ -204,67 +260,10 @@ export default function AiChatbotComponent({
     return null;
   };
 
-  const renderFormattedText = (text) => {
-    if (!text) return null;
-    return text.split('\n').map((line, i) => {
-      if (line.startsWith('### ')) {
-        return <h4 key={i} style={{ margin: '10px 0 6px 0', fontSize: '0.98rem', fontWeight: 700, color: '#f8fafc' }}>{line.replace('### ', '')}</h4>;
-      }
-      if (line.startsWith('**') && line.endsWith('**')) {
-        return <div key={i} style={{ fontWeight: 700, color: '#e2e8f0', margin: '4px 0' }}>{line.replaceAll('**', '')}</div>;
-      }
-      if (line.startsWith('• ') || line.startsWith('- ')) {
-        return <div key={i} style={{ paddingLeft: '12px', margin: '3px 0' }}>• {line.substring(2)}</div>;
-      }
-      return <div key={i} style={{ minHeight: '1.2em' }}>{line}</div>;
-    });
-  };
 
-  const getDynamicQuestions = (catId) => {
-    const cat = RECOMMENDED_CATEGORIES.find(c => c.id === catId) || RECOMMENDED_CATEGORIES[0];
-    if (catId !== 'LEARN') return cat.questions;
-
-    const catName = (courseCategory || '').toLowerCase();
-    const titleName = (courseTitle || '').toLowerCase();
-
-    if (catName.includes('ai') || catName.includes('ml') || titleName.includes('machine learning')) {
-      return [
-        'Explain Supervised vs Unsupervised Learning',
-        'What is the difference between Linear & Logistic Regression?',
-        'How does Gradient Descent minimize cost functions?',
-        'What is overfitting and how does regularization prevent it?'
-      ];
-    }
-    if (catName.includes('genai') || titleName.includes('generative') || titleName.includes('llm') || titleName.includes('prompt')) {
-      return [
-        'What is the Self-Attention mechanism in Transformers?',
-        'Explain Parameter-Efficient Fine-Tuning (LoRA / PEFT)',
-        'How does Retrieval-Augmented Generation (RAG) work?',
-        'What is the difference between Pre-training & Fine-Tuning?'
-      ];
-    }
-    if (catName.includes('web') || titleName.includes('web') || titleName.includes('react') || titleName.includes('front-end')) {
-      return [
-        'Explain Flexbox vs CSS Grid layout models',
-        'How do Async/Await and Promises work in JavaScript?',
-        'What is the React Virtual DOM and Component State?',
-        'How do RESTful APIs communicate between client and server?'
-      ];
-    }
-    if (catName.includes('data') || titleName.includes('data science') || titleName.includes('python')) {
-      return [
-        'What is the difference between Data Science and Machine Learning?',
-        'How do Pandas DataFrames manipulate structured data?',
-        'What is the role of SQL JOIN queries in data analytics?',
-        'Explain Exploratory Data Analysis (EDA) best practices'
-      ];
-    }
-
-    return cat.questions;
-  };
-
-  const currentCategoryData = RECOMMENDED_CATEGORIES.find(c => c.id === activeCategory) || RECOMMENDED_CATEGORIES[0];
-  const activeQuestions = getDynamicQuestions(activeCategory);
+  const recommendedCategories = getRecommendedCategories(courseCategory);
+  const currentCategoryData = recommendedCategories.find(c => c.id === activeCategory) || recommendedCategories[0];
+  const activeQuestions = currentCategoryData.questions;
 
   return (
     <div
@@ -307,7 +306,7 @@ export default function AiChatbotComponent({
       {courseId && courseId !== 'general' && (
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
           {[
-            { text: 'Explain Module 1', icon: Zap },
+            { text: `Explain ${courseTitle || 'Module 1'}`, icon: Zap },
             { text: 'Key concepts summary', icon: Sparkles },
             { text: 'Practice quiz', icon: FileText },
             { text: 'Study tips', icon: BarChart3 }
@@ -333,7 +332,7 @@ export default function AiChatbotComponent({
       <div style={{ marginBottom: '0.85rem', background: '#090d16', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '12px', padding: '0.65rem 0.85rem' }}>
         {/* Category Selector Tabs */}
         <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', marginBottom: '0.55rem', paddingBottom: '2px' }}>
-          {RECOMMENDED_CATEGORIES.map((cat) => {
+          {recommendedCategories.map((cat) => {
             const Icon = cat.icon;
             const isActive = activeCategory === cat.id;
             return (
@@ -411,8 +410,8 @@ export default function AiChatbotComponent({
                 style={{
                   padding: '0.9rem 1.15rem',
                   borderRadius: m.sender === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                  background: m.sender === 'user' ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : '#1e293b',
-                  border: m.sender === 'user' ? 'none' : '1px solid rgba(255, 255, 255, 0.06)',
+                  background: m.sender === 'user' ? '#1e293b' : '#0f172a',
+                  border: m.sender === 'user' ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
                   color: '#f8fafc',
                   fontSize: '0.9rem',
                   lineHeight: 1.6,
