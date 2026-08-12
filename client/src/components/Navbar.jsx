@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { isInstructor, getDefaultDashboard } from '../utils/roleUtils';
 import Avatar from './Avatar';
-import InstructorModal from './InstructorModal';
 import { 
   Sparkles, 
   LayoutDashboard, 
@@ -20,7 +20,9 @@ const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [instructorModalOpen, setInstructorModalOpen] = useState(false);
+
+  const userIsInstructor = isAuthenticated && isInstructor(user);
+  const dashboardPath = getDefaultDashboard(user);
 
   const [profileData, setProfileData] = useState(() => {
     try {
@@ -68,7 +70,7 @@ const Navbar = () => {
     <header className="navbar">
       <div className="navbar-container">
         {/* Brand Logo & Version Pill */}
-        <Link to={isAuthenticated ? '/dashboard' : '/login'} className="navbar-brand" onClick={closeMobileMenu}>
+        <Link to={isAuthenticated ? dashboardPath : '/login'} className="navbar-brand" onClick={closeMobileMenu}>
           <span className="brand-icon-wrapper">
             <Sparkles size={20} />
           </span>
@@ -97,13 +99,35 @@ const Navbar = () => {
         <nav className="navbar-links desktop-nav">
           {isAuthenticated ? (
             <>
-              <NavLink
-                to="/dashboard"
-                className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
-              >
-                <LayoutDashboard size={16} />
-                Dashboard
-              </NavLink>
+              {/* Role-based dashboard link */}
+              {userIsInstructor ? (
+                <NavLink
+                  to="/instructor/dashboard"
+                  className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+                >
+                  <ShieldCheck size={16} />
+                  Instructor Dashboard
+                </NavLink>
+              ) : (
+                <NavLink
+                  to="/dashboard"
+                  className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+                >
+                  <LayoutDashboard size={16} />
+                  Dashboard
+                </NavLink>
+              )}
+
+              {/* Instructors can also browse the course catalog */}
+              {userIsInstructor && (
+                <NavLink
+                  to="/dashboard"
+                  className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+                >
+                  <LayoutDashboard size={16} />
+                  Courses
+                </NavLink>
+              )}
 
               <NavLink
                 to="/profile"
@@ -112,16 +136,6 @@ const Navbar = () => {
                 <User size={16} />
                 Profile
               </NavLink>
-
-              <button
-                onClick={() => setInstructorModalOpen(true)}
-                className="btn btn-secondary btn-sm"
-                style={{ borderColor: 'rgba(99, 102, 241, 0.4)', color: '#a5b4fc' }}
-                title="Instructor Console"
-              >
-                <ShieldCheck size={14} color="#818cf8" />
-                Instructor Tools
-              </button>
 
               <div className="user-badge-container">
                 <Avatar name={displayUsername} size={28} />
@@ -174,14 +188,36 @@ const Navbar = () => {
                 </span>
               </div>
 
-              <NavLink
-                to="/dashboard"
-                onClick={closeMobileMenu}
-                className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
-              >
-                <LayoutDashboard size={18} />
-                Dashboard
-              </NavLink>
+              {userIsInstructor ? (
+                <NavLink
+                  to="/instructor/dashboard"
+                  onClick={closeMobileMenu}
+                  className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+                >
+                  <ShieldCheck size={18} />
+                  Instructor Dashboard
+                </NavLink>
+              ) : (
+                <NavLink
+                  to="/dashboard"
+                  onClick={closeMobileMenu}
+                  className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+                >
+                  <LayoutDashboard size={18} />
+                  Dashboard
+                </NavLink>
+              )}
+
+              {userIsInstructor && (
+                <NavLink
+                  to="/dashboard"
+                  onClick={closeMobileMenu}
+                  className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+                >
+                  <LayoutDashboard size={18} />
+                  Courses
+                </NavLink>
+              )}
 
               <NavLink
                 to="/profile"
@@ -217,10 +253,6 @@ const Navbar = () => {
         </div>
       )}
 
-      <InstructorModal
-        isOpen={instructorModalOpen}
-        onClose={() => setInstructorModalOpen(false)}
-      />
     </header>
   );
 };

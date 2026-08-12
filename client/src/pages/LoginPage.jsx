@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { getDefaultDashboard } from '../utils/roleUtils';
 import { 
   LogIn, 
   AlertCircle, 
@@ -22,15 +23,15 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const { login, loading, isAuthenticated } = useAuth();
+  const { login, loading, isAuthenticated, user } = useAuth();
   const { addToast } = useToast();
   const navigate = useNavigate();
 
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+      navigate(getDefaultDashboard(user), { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,7 +45,7 @@ const LoginPage = () => {
     try {
       const userInfo = await login(username, password);
       addToast(`Welcome back, ${userInfo.username || 'Learner'}!`, 'success', 'Signed In');
-      navigate('/dashboard');
+      navigate(getDefaultDashboard(userInfo));
     } catch (err) {
       console.error('Login error:', err);
       const message =

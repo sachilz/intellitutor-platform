@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { getCourses, enrollInCourse } from '../api/courseApi';
 import { getUserProgress, updateProgress, createProgress } from '../api/progressApi';
 import { askTutor } from '../api/tutorApi';
+import { getQuizzes, submitQuiz, getQuizAttempts } from '../api/quizApi';
 import { CourseGridSkeleton } from '../components/SkeletonLoader';
 import { CURATED_COURSES, getCategoryBadgeClass } from '../data/coursesCatalog';
 import { getStoredProgressMap, saveStoredProgressMap, setStoredCourseProgress, removeStoredCourseProgress } from '../utils/progressStorage';
@@ -50,7 +51,9 @@ import {
   PieChart,
   Trash2,
   Pause,
-  Play
+  Play,
+  ShieldCheck,
+  RotateCcw
 } from 'lucide-react';
 
 const DashboardPage = () => {
@@ -58,6 +61,8 @@ const DashboardPage = () => {
   const { user } = useAuth();
   const { addToast } = useToast();
   const [courses, setCourses] = useState([]);
+  const [quizzes, setQuizzes] = useState([]);
+  const [activeQuizModal, setActiveQuizModal] = useState(null);
   const [userProgressMap, setUserProgressMap] = useState(() => getStoredProgressMap());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -218,20 +223,49 @@ const DashboardPage = () => {
     setError('');
     try {
       let apiCourses = [];
+      let apiQuizzes = [];
       try {
-        apiCourses = await getCourses();
+        const [cRes, qRes] = await Promise.all([
+          getCourses().catch(() => []),
+          getQuizzes().catch(() => []),
+        ]);
+        apiCourses = Array.isArray(cRes) ? cRes : cRes?.courses || [];
+        apiQuizzes = Array.isArray(qRes) ? qRes : [];
       } catch (err) {
         console.warn('API Gateway fetch warning:', err);
       }
 
-      // Merge API courses with Curated Catalog (prevent duplicates by title or id)
+      setQuizzes(apiQuizzes);
+
+      // Identify curated catalog IDs to separate instructor-uploaded courses
+      const curatedIds = new Set(CURATED_COURSES.map((c) => c.id));
       const mergedMap = new Map();
-      CURATED_COURSES.forEach((c) => mergedMap.set(c.id, c));
+
+      // Seed curated courses with isInstructorCourse: false
+      CURATED_COURSES.forEach((c) => {
+        mergedMap.set(c.id, { ...c, isInstructorCourse: false });
+      });
       
       if (Array.isArray(apiCourses) && apiCourses.length > 0) {
         apiCourses.forEach((c) => {
           const key = c.id || c._id || c.title;
-          mergedMap.set(key, { ...mergedMap.get(key), ...c });
+          const isCuratedMatch = curatedIds.has(key);
+          if (isCuratedMatch) {
+            mergedMap.set(key, { ...mergedMap.get(key), ...c, isInstructorCourse: false });
+          } else {
+            // This is an instructor-uploaded course!
+            mergedMap.set(key, {
+              ...c,
+              id: key,
+              isInstructorCourse: true,
+              platform: c.platform || 'IntelliLearn',
+              category: c.category || 'Computer Science',
+              instructor: c.instructor || c.instructorId || 'Instructor',
+              duration: c.duration || 'Self-paced',
+              rating: c.rating || '5.0 ⭐',
+              students: c.students || '10+ Enrolled',
+            });
+          }
         });
       }
 
@@ -259,7 +293,7 @@ const DashboardPage = () => {
     } catch (err) {
       console.error('Failed to fetch courses:', err);
       setError('Failed to load courses from API. Showing curated catalog.');
-      setCourses(CURATED_COURSES);
+      setCourses(CURATED_COURSES.map((c) => ({ ...c, isInstructorCourse: false })));
     } finally {
       setLoading(false);
     }
@@ -268,6 +302,71 @@ const DashboardPage = () => {
   useEffect(() => {
     fetchData();
   }, [user]);
+
+  // Quiz Modal Handlers
+  const handleStartQuiz = async (quiz) => {
+    try {
+      const userId = user?.email || user?.username || 'student1@intellilearn.com';
+      const attempts = await getQuizAttempts(quiz.id, userId).catch(() => []);
+      setActiveQuizModal({
+        quiz,
+        selectedAnswers: {},
+        result: null,
+        submitting: false,
+        attempts: Array.isArray(attempts) ? attempts : [],
+      });
+    } catch {
+      setActiveQuizModal({
+        quiz,
+        selectedAnswers: {},
+        result: null,
+        submitting: false,
+        attempts: [],
+      });
+    }
+  };
+
+  const handleQuizOptionSelect = (questionIndex, optionIndex) => {
+    if (!activeQuizModal) return;
+    setActiveQuizModal((prev) => ({
+      ...prev,
+      selectedAnswers: {
+        ...prev.selectedAnswers,
+        [questionIndex]: optionIndex,
+      },
+    }));
+  };
+
+  const handleQuizSubmit = async (e) => {
+    e.preventDefault();
+    if (!activeQuizModal) return;
+    const { quiz, selectedAnswers } = activeQuizModal;
+    const questionsCount = quiz.questions?.length || 0;
+    const answeredCount = Object.keys(selectedAnswers).length;
+
+    if (answeredCount < questionsCount) {
+      addToast(`Please answer all ${questionsCount} questions before submitting.`, 'warning', 'Incomplete Quiz');
+      return;
+    }
+
+    setActiveQuizModal((prev) => ({ ...prev, submitting: true }));
+    try {
+      const selectedOptions = quiz.questions.map((_, idx) => selectedAnswers[idx] ?? 0);
+      const userId = user?.email || user?.username || 'student1@intellilearn.com';
+      const res = await submitQuiz(quiz.id, selectedOptions, userId);
+      setActiveQuizModal((prev) => ({
+        ...prev,
+        result: res,
+        submitting: false,
+      }));
+      setUserXp((prev) => prev + 40);
+      addToast(`Quiz submitted! Score: ${res.score}% (+40 XP) 🎉`, 'success', 'Assessment Complete');
+    } catch (err) {
+      console.error('Quiz submission error:', err);
+      addToast('Failed to submit quiz attempt.', 'error', 'Error');
+      setActiveQuizModal((prev) => ({ ...prev, submitting: false }));
+    }
+  };
 
   // Derived Categories & Counts
   const categories = useMemo(() => {
@@ -469,6 +568,15 @@ const DashboardPage = () => {
     return list;
   }, [courses, userProgressMap, selectedCategory, searchTerm, sortBy, favorites]);
 
+  // Separate instructor-uploaded courses from real-time catalog
+  const filteredInstructorCourses = useMemo(() => {
+    return filteredCourses.filter((c) => c.isInstructorCourse);
+  }, [filteredCourses]);
+
+  const filteredCuratedCourses = useMemo(() => {
+    return filteredCourses.filter((c) => !c.isInstructorCourse);
+  }, [filteredCourses]);
+
   // Skill tags generator helper
   const getSkillTags = (category) => {
     switch (category) {
@@ -480,6 +588,365 @@ const DashboardPage = () => {
       case 'Security': return ['Zero Trust', 'Cybersecurity', 'Auth', 'OAuth2'];
       default: return ['AI', 'Engineering', 'Hands-on'];
     }
+  };
+
+  // Course Grid / List Renderer Helper
+  const renderCourseGrid = (courseList) => {
+    if (viewMode === 'GRID') {
+      return (
+        <div className="courses-grid">
+          {courseList.map((course) => {
+            const courseId = course.id || course._id;
+            const progress = userProgressMap[courseId];
+            const isEnrolled = progress !== undefined;
+            const isFav = favorites.includes(courseId);
+            const badgeClass = getCategoryBadgeClass(course.category);
+            const skillTags = getSkillTags(course.category);
+
+            const categoryColors = {
+              'GenAI': { accent: '#a855f7', bg: 'rgba(168,85,247,0.08)', border: 'rgba(168,85,247,0.2)' },
+              'AI & ML': { accent: '#6366f1', bg: 'rgba(99,102,241,0.08)', border: 'rgba(99,102,241,0.2)' },
+              'Web Dev': { accent: '#22c55e', bg: 'rgba(34,197,94,0.08)', border: 'rgba(34,197,94,0.2)' },
+              'DevOps & Cloud': { accent: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)' },
+              'Data Science': { accent: '#06b6d4', bg: 'rgba(6,182,212,0.08)', border: 'rgba(6,182,212,0.2)' },
+              'Security': { accent: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)' },
+            };
+            const colors = categoryColors[course.category] || categoryColors['AI & ML'];
+
+            return (
+              <div
+                key={courseId}
+                style={{
+                  background: course.isInstructorCourse ? 'rgba(168,85,247,0.03)' : 'rgba(255,255,255,0.02)',
+                  border: course.isInstructorCourse ? '1px solid rgba(168,85,247,0.25)' : '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: '18px',
+                  overflow: 'hidden',
+                  display: 'flex', flexDirection: 'column',
+                  transition: 'all 0.3s ease',
+                  cursor: 'default',
+                  position: 'relative',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = `0 20px 50px ${colors.accent}18`; e.currentTarget.style.borderColor = `${colors.accent}40`; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = course.isInstructorCourse ? 'rgba(168,85,247,0.25)' : 'rgba(255,255,255,0.06)'; }}
+              >
+                {/* Top accent gradient bar */}
+                <div style={{ height: '3px', background: course.isInstructorCourse ? 'linear-gradient(90deg, #a855f7, #6366f1)' : `linear-gradient(90deg, ${colors.accent}, ${colors.accent}60)` }} />
+
+                <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+                  {/* Header: badges + rating + bookmark */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span className={`badge ${badgeClass}`} style={{ fontSize: '0.7rem' }}>{course.category}</span>
+                      {course.isInstructorCourse ? (
+                        <span style={{
+                          background: 'rgba(168,85,247,0.15)',
+                          color: '#d8b4fe',
+                          border: '1px solid rgba(168,85,247,0.35)',
+                          borderRadius: '6px', padding: '2px 8px', fontSize: '0.68rem', fontWeight: 700,
+                          display: 'flex', alignItems: 'center', gap: '4px'
+                        }}>
+                          <ShieldCheck size={11} /> Instructor Course
+                        </span>
+                      ) : (
+                        <span style={{
+                          background: course.platform === 'Coursera' ? 'rgba(59,130,246,0.12)' : course.platform === 'edX' ? 'rgba(239,68,68,0.12)' : 'rgba(168,85,247,0.12)',
+                          color: course.platform === 'Coursera' ? '#60a5fa' : course.platform === 'edX' ? '#fca5a5' : '#c084fc',
+                          border: `1px solid ${course.platform === 'Coursera' ? 'rgba(59,130,246,0.25)' : course.platform === 'edX' ? 'rgba(239,68,68,0.25)' : 'rgba(168,85,247,0.25)'}`,
+                          borderRadius: '6px', padding: '2px 8px', fontSize: '0.68rem', fontWeight: 700,
+                        }}>
+                          {course.platform}
+                        </span>
+                      )}
+                      {isEnrolled && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: '6px', padding: '2px 8px' }}>
+                          <CheckCircle2 size={10} /> Enrolled
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {course.rating && (
+                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <Star size={12} fill="#fbbf24" color="#fbbf24" /> {course.rating.replace(' ⭐', '')}
+                        </span>
+                      )}
+                      <button
+                        onClick={(e) => { e.preventDefault(); toggleFavorite(courseId); }}
+                        style={{
+                          width: '30px', height: '30px', borderRadius: '8px', display: 'flex',
+                          alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                          background: isFav ? 'rgba(251,191,36,0.12)' : 'rgba(255,255,255,0.03)',
+                          border: isFav ? '1px solid rgba(251,191,36,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                          color: isFav ? '#fbbf24' : '#475569', transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <Star size={13} fill={isFav ? '#fbbf24' : 'none'} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Title */}
+                  <h3 style={{ fontSize: '1.12rem', fontWeight: 800, color: '#e2e8f0', margin: 0, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {course.title}
+                  </h3>
+
+                  {/* Description */}
+                  <p style={{ fontSize: '0.82rem', color: '#64748b', margin: 0, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {course.description}
+                  </p>
+
+                  {/* Skill tags */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                    {skillTags.slice(0, 4).map(tag => (
+                      <span key={tag} style={{
+                        fontSize: '0.68rem', fontWeight: 600, padding: '3px 9px', borderRadius: '6px',
+                        background: `${colors.accent}10`, border: `1px solid ${colors.accent}20`,
+                        color: `${colors.accent}cc`,
+                      }}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Metadata row */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', fontSize: '0.75rem', color: '#475569', marginTop: 'auto' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <User size={12} /> <span style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{course.instructor}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {course.students && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#818cf8' }}>
+                          <Users size={11} /> {course.students}
+                        </span>
+                      )}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <Clock size={11} /> {course.duration}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Progress bar for enrolled */}
+                  {isEnrolled && (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', marginBottom: '4px' }}>
+                        <span style={{ color: '#64748b' }}>Progress</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <strong style={{ color: '#4ade80' }}>{progress}%</strong>
+                          {progress < 100 && (
+                            <button
+                              onClick={(e) => { e.preventDefault(); handleQuickProgressBump(courseId, progress); }}
+                              disabled={actionLoadingId === courseId}
+                              style={{
+                                padding: '1px 6px', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 700,
+                                background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)',
+                                color: '#4ade80', cursor: 'pointer',
+                              }}
+                            >
+                              +10%
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ height: '5px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', borderRadius: '3px', width: `${progress}%`, background: `linear-gradient(90deg, ${colors.accent}, #22c55e)`, transition: 'width 0.4s ease' }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer actions */}
+                <div style={{
+                  padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.04)',
+                  display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(0,0,0,0.15)',
+                }}>
+                  <button
+                    onClick={() => { setPreviewCourse(course); setPreviewTab('overview'); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      width: '36px', height: '36px', borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                      color: '#94a3b8', cursor: 'pointer', transition: 'all 0.15s ease', flexShrink: 0,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = `${colors.accent}15`; e.currentTarget.style.color = colors.accent; e.currentTarget.style.borderColor = `${colors.accent}40`; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                    title="Preview course details"
+                  >
+                    <Eye size={15} />
+                  </button>
+
+                  {isEnrolled && (
+                    <button
+                      onClick={(e) => { e.preventDefault(); handleUnenrollCourse(courseId); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: '36px', height: '36px', borderRadius: '10px',
+                        background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)',
+                        color: '#fca5a5', cursor: 'pointer', transition: 'all 0.15s ease', flexShrink: 0,
+                      }}
+                      title="Unenroll"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+
+                  {(course.courseUrl || course.udemyUrl) && (
+                    <a
+                      href={course.courseUrl || course.udemyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: '36px', height: '36px', borderRadius: '10px',
+                        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                        color: course.platform === 'Coursera' ? '#60a5fa' : course.platform === 'edX' ? '#fca5a5' : '#c084fc',
+                        textDecoration: 'none', transition: 'all 0.15s ease', flexShrink: 0,
+                      }}
+                      title={`View on ${course.platform}`}
+                    >
+                      <ExternalLink size={14} />
+                    </a>
+                  )}
+
+                  <Link
+                    to={`/courses/${courseId}`}
+                    style={{
+                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                      padding: '9px 16px', borderRadius: '10px', textDecoration: 'none',
+                      background: course.isInstructorCourse ? 'linear-gradient(135deg, #a855f7, #6366f1)' : `linear-gradient(135deg, ${colors.accent}, ${colors.accent}cc)`,
+                      color: '#fff', fontSize: '0.82rem', fontWeight: 700,
+                      transition: 'all 0.2s ease',
+                      boxShadow: `0 4px 15px ${colors.accent}30`,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 20px ${colors.accent}40`; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 15px ${colors.accent}30`; }}
+                  >
+                    <span>{isEnrolled ? 'Continue' : 'View & Enroll'}</span>
+                    <ArrowRight size={14} />
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (viewMode === 'COMPACT') {
+      return (
+        <div className="courses-compact-view">
+          {courseList.map((course) => {
+            const courseId = course.id || course._id;
+            const progress = userProgressMap[courseId];
+            const isEnrolled = progress !== undefined;
+            const isFav = favorites.includes(courseId);
+
+            return (
+              <div key={courseId} className="compact-course-card glass-card" style={course.isInstructorCourse ? { border: '1px solid rgba(168,85,247,0.3)', background: 'rgba(168,85,247,0.03)' } : {}}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className={`badge ${getCategoryBadgeClass(course.category)}`} style={{ fontSize: '0.7rem' }}>
+                      {course.category || 'AI'}
+                    </span>
+                    {course.isInstructorCourse && (
+                      <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#d8b4fe', background: 'rgba(168,85,247,0.2)', padding: '2px 6px', borderRadius: '4px' }}>
+                        Instructor
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className={`bookmark-btn ${isFav ? 'bookmarked' : ''}`}
+                    onClick={() => toggleFavorite(courseId)}
+                    style={{ width: '26px', height: '26px' }}
+                  >
+                    <Star size={12} fill={isFav ? '#fcd34d' : 'none'} />
+                  </button>
+                </div>
+
+                <div>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: '4px 0' }}>{course.title}</h4>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.description}</p>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#fcd34d', fontWeight: 600 }}>★ {course.rating || '4.8'}</span>
+                  <Link to={`/courses/${courseId}`} className="btn btn-primary btn-sm">
+                    <span>{isEnrolled ? 'Open' : 'Enroll'}</span>
+                    <ArrowRight size={12} />
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // LIST view mode
+    return (
+      <div className="courses-list-view">
+        {courseList.map((course) => {
+          const courseId = course.id || course._id;
+          const progress = userProgressMap[courseId];
+          const isEnrolled = progress !== undefined;
+          const badgeClass = getCategoryBadgeClass(course.category);
+
+          return (
+            <div key={courseId} className="glass-card course-list-item glass-card-hover" style={course.isInstructorCourse ? { border: '1px solid rgba(168,85,247,0.3)', background: 'rgba(168,85,247,0.03)' } : {}}>
+              <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className={`badge ${badgeClass}`}>{course.category || 'AI & ML'}</span>
+                  {course.isInstructorCourse && (
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#d8b4fe', background: 'rgba(168,85,247,0.2)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(168,85,247,0.3)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <ShieldCheck size={11} /> Instructor Course
+                    </span>
+                  )}
+                  <span style={{ fontSize: '0.75rem', color: '#fcd34d', fontWeight: 600 }}>★ {course.rating}</span>
+                  {isEnrolled && <span className="badge badge-success">Enrolled</span>}
+                </div>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{course.title}</h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{course.description}</p>
+              </div>
+
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '160px' }}>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+                  <User size={12} /> {course.instructor || 'Dr. IntelliLearn'}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+                  <Clock size={12} /> {course.duration || 'Self-paced'}
+                </div>
+                {isEnrolled && (
+                  <div style={{ marginTop: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                      <span>Progress</span>
+                      <strong>{progress}%</strong>
+                    </div>
+                    <div className="progress-bar-container" style={{ height: '6px' }}>
+                      <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => { setPreviewCourse(course); setPreviewTab('overview'); }}
+                  className="btn btn-secondary btn-sm"
+                  title="Quick preview syllabus"
+                >
+                  <Eye size={15} />
+                </button>
+
+                <Link to={`/courses/${courseId}`} className="btn btn-primary btn-sm">
+                  <span>{isEnrolled ? 'Continue' : 'Enroll'}</span>
+                  <ArrowRight size={14} />
+                </Link>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
@@ -1168,17 +1635,7 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* 5. SECTION HEADER */}
-      <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <h2>Interactive AI Courses</h2>
-        </div>
-        {!loading && (
-          <span className="badge badge-info">{filteredCourses.length} Courses Found</span>
-        )}
-      </div>
-
-      {/* 6. ERROR ALERT */}
+      {/* ERROR ALERT */}
       {error && (
         <div className="alert alert-info">
           <AlertCircle size={18} style={{ flexShrink: 0 }} />
@@ -1186,10 +1643,10 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {/* 7. LOADING SKELETON */}
+      {/* LOADING SKELETON */}
       {loading && <CourseGridSkeleton count={6} />}
 
-      {/* 8. EMPTY STATE */}
+      {/* EMPTY STATE */}
       {!loading && filteredCourses.length === 0 && (
         <div className="state-card glass-card">
           <div className="state-icon-wrapper">
@@ -1208,337 +1665,280 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {/* 9. GRID VIEW MODE */}
-      {!loading && filteredCourses.length > 0 && viewMode === 'GRID' && (
-        <div className="courses-grid">
-          {filteredCourses.map((course) => {
-            const courseId = course.id || course._id;
-            const progress = userProgressMap[courseId];
-            const isEnrolled = progress !== undefined;
-            const isFav = favorites.includes(courseId);
-            const badgeClass = getCategoryBadgeClass(course.category);
-            const skillTags = getSkillTags(course.category);
+      {/* ═══ 1. TOP SECTION: INSTRUCTOR-LED COURSES ═══ */}
+      {!loading && filteredInstructorCourses.length > 0 && (
+        <div style={{ marginBottom: '36px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                padding: '8px 12px', borderRadius: '12px',
+                background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.3)',
+                color: '#c084fc', display: 'flex', alignItems: 'center', gap: '6px'
+              }}>
+                <ShieldCheck size={18} />
+                <span style={{ fontSize: '0.85rem', fontWeight: 800 }}>Platform Exclusive</span>
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, color: '#e2e8f0' }}>Instructor-Led Courses</h2>
+                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Custom courses published directly by IntelliLearn instructors</span>
+              </div>
+            </div>
+            <span className="badge" style={{ background: 'rgba(168,85,247,0.18)', color: '#d8b4fe', border: '1px solid rgba(168,85,247,0.35)', padding: '4px 12px', fontSize: '0.78rem', fontWeight: 700 }}>
+              {filteredInstructorCourses.length} Instructor Course{filteredInstructorCourses.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          {renderCourseGrid(filteredInstructorCourses)}
+        </div>
+      )}
 
-            const categoryColors = {
-              'GenAI': { accent: '#a855f7', bg: 'rgba(168,85,247,0.08)', border: 'rgba(168,85,247,0.2)' },
-              'AI & ML': { accent: '#6366f1', bg: 'rgba(99,102,241,0.08)', border: 'rgba(99,102,241,0.2)' },
-              'Web Dev': { accent: '#22c55e', bg: 'rgba(34,197,94,0.08)', border: 'rgba(34,197,94,0.2)' },
-              'DevOps & Cloud': { accent: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)' },
-              'Data Science': { accent: '#06b6d4', bg: 'rgba(6,182,212,0.08)', border: 'rgba(6,182,212,0.2)' },
-              'Security': { accent: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)' },
-            };
-            const colors = categoryColors[course.category] || categoryColors['AI & ML'];
+      {/* ═══ 2. MIDDLE SECTION: INSTRUCTOR ASSESSMENTS & QUIZZES ═══ */}
+      {!loading && quizzes.length > 0 && (
+        <div style={{ marginBottom: '36px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                padding: '8px 12px', borderRadius: '12px',
+                background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)',
+                color: '#818cf8', display: 'flex', alignItems: 'center', gap: '6px'
+              }}>
+                <Award size={18} />
+                <span style={{ fontSize: '0.85rem', fontWeight: 800 }}>Skill Evaluation</span>
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, color: '#e2e8f0' }}>Instructor Assessments & Quizzes</h2>
+                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Test your skills with custom quizzes created by platform instructors</span>
+              </div>
+            </div>
+            <span className="badge" style={{ background: 'rgba(99,102,241,0.18)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.35)', padding: '4px 12px', fontSize: '0.78rem', fontWeight: 700 }}>
+              {quizzes.length} Available Quiz{quizzes.length !== 1 ? 'zes' : ''}
+            </span>
+          </div>
 
-            return (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+            {quizzes.map((quiz) => (
               <div
-                key={courseId}
+                key={quiz.id}
                 style={{
-                  background: 'rgba(255,255,255,0.02)',
-                  border: `1px solid rgba(255,255,255,0.06)`,
-                  borderRadius: '18px',
-                  overflow: 'hidden',
-                  display: 'flex', flexDirection: 'column',
-                  transition: 'all 0.3s ease',
-                  cursor: 'default',
-                  position: 'relative',
+                  background: 'rgba(99,102,241,0.03)',
+                  border: '1px solid rgba(99,102,241,0.2)',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  display: 'flex', flexDirection: 'column', gap: '12px',
+                  transition: 'all 0.25s ease',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = `0 20px 50px ${colors.accent}18`; e.currentTarget.style.borderColor = `${colors.accent}40`; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.45)'; e.currentTarget.style.boxShadow = '0 12px 30px rgba(99,102,241,0.15)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.2)'; e.currentTarget.style.boxShadow = 'none'; }}
               >
-                {/* Top accent gradient bar */}
-                <div style={{ height: '3px', background: `linear-gradient(90deg, ${colors.accent}, ${colors.accent}60)` }} />
-
-                <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-                  {/* Header: badges + rating + bookmark */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                      <span className={`badge ${badgeClass}`} style={{ fontSize: '0.7rem' }}>{course.category}</span>
-                      <span style={{
-                        background: course.platform === 'Coursera' ? 'rgba(59,130,246,0.12)' : course.platform === 'edX' ? 'rgba(239,68,68,0.12)' : 'rgba(168,85,247,0.12)',
-                        color: course.platform === 'Coursera' ? '#60a5fa' : course.platform === 'edX' ? '#fca5a5' : '#c084fc',
-                        border: `1px solid ${course.platform === 'Coursera' ? 'rgba(59,130,246,0.25)' : course.platform === 'edX' ? 'rgba(239,68,68,0.25)' : 'rgba(168,85,247,0.25)'}`,
-                        borderRadius: '6px', padding: '2px 8px', fontSize: '0.68rem', fontWeight: 700,
-                      }}>
-                        {course.platform}
-                      </span>
-                      {isEnrolled && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: '6px', padding: '2px 8px' }}>
-                          <CheckCircle2 size={10} /> Enrolled
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {course.rating && (
-                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                          <Star size={12} fill="#fbbf24" color="#fbbf24" /> {course.rating.replace(' ⭐', '')}
-                        </span>
-                      )}
-                      <button
-                        onClick={(e) => { e.preventDefault(); toggleFavorite(courseId); }}
-                        style={{
-                          width: '30px', height: '30px', borderRadius: '8px', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                          background: isFav ? 'rgba(251,191,36,0.12)' : 'rgba(255,255,255,0.03)',
-                          border: isFav ? '1px solid rgba(251,191,36,0.3)' : '1px solid rgba(255,255,255,0.06)',
-                          color: isFav ? '#fbbf24' : '#475569', transition: 'all 0.15s ease',
-                        }}
-                      >
-                        <Star size={13} fill={isFav ? '#fbbf24' : 'none'} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Title */}
-                  <h3 style={{ fontSize: '1.12rem', fontWeight: 800, color: '#e2e8f0', margin: 0, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {course.title}
-                  </h3>
-
-                  {/* Description */}
-                  <p style={{ fontSize: '0.82rem', color: '#64748b', margin: 0, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {course.description}
-                  </p>
-
-                  {/* Skill tags */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                    {skillTags.slice(0, 4).map(tag => (
-                      <span key={tag} style={{
-                        fontSize: '0.68rem', fontWeight: 600, padding: '3px 9px', borderRadius: '6px',
-                        background: `${colors.accent}10`, border: `1px solid ${colors.accent}20`,
-                        color: `${colors.accent}cc`,
-                      }}>
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Metadata row */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', fontSize: '0.75rem', color: '#475569', marginTop: 'auto' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <User size={12} /> <span style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{course.instructor}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      {course.students && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#818cf8' }}>
-                          <Users size={11} /> {course.students}
-                        </span>
-                      )}
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        <Clock size={11} /> {course.duration}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Progress bar for enrolled */}
-                  {isEnrolled && (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', marginBottom: '4px' }}>
-                        <span style={{ color: '#64748b' }}>Progress</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <strong style={{ color: '#4ade80' }}>{progress}%</strong>
-                          {progress < 100 && (
-                            <button
-                              onClick={(e) => { e.preventDefault(); handleQuickProgressBump(courseId, progress); }}
-                              disabled={actionLoadingId === courseId}
-                              style={{
-                                padding: '1px 6px', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 700,
-                                background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)',
-                                color: '#4ade80', cursor: 'pointer',
-                              }}
-                            >
-                              +10%
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div style={{ height: '5px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', borderRadius: '3px', width: `${progress}%`, background: `linear-gradient(90deg, ${colors.accent}, #22c55e)`, transition: 'width 0.4s ease' }} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer actions */}
-                <div style={{
-                  padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.04)',
-                  display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(0,0,0,0.15)',
-                }}>
-                  <button
-                    onClick={() => { setPreviewCourse(course); setPreviewTab('overview'); }}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      width: '36px', height: '36px', borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                      color: '#94a3b8', cursor: 'pointer', transition: 'all 0.15s ease', flexShrink: 0,
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = `${colors.accent}15`; e.currentTarget.style.color = colors.accent; e.currentTarget.style.borderColor = `${colors.accent}40`; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
-                    title="Preview course details"
-                  >
-                    <Eye size={15} />
-                  </button>
-
-                  {isEnrolled && (
-                    <button
-                      onClick={(e) => { e.preventDefault(); handleUnenrollCourse(courseId); }}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        width: '36px', height: '36px', borderRadius: '10px',
-                        background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)',
-                        color: '#fca5a5', cursor: 'pointer', transition: 'all 0.15s ease', flexShrink: 0,
-                      }}
-                      title="Unenroll"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-
-                  {(course.courseUrl || course.udemyUrl) && (
-                    <a
-                      href={course.courseUrl || course.udemyUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        width: '36px', height: '36px', borderRadius: '10px',
-                        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                        color: course.platform === 'Coursera' ? '#60a5fa' : course.platform === 'edX' ? '#fca5a5' : '#c084fc',
-                        textDecoration: 'none', transition: 'all 0.15s ease', flexShrink: 0,
-                      }}
-                      title={`View on ${course.platform}`}
-                    >
-                      <ExternalLink size={14} />
-                    </a>
-                  )}
-
-                  <Link
-                    to={`/courses/${courseId}`}
-                    style={{
-                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                      padding: '9px 16px', borderRadius: '10px', textDecoration: 'none',
-                      background: `linear-gradient(135deg, ${colors.accent}, ${colors.accent}cc)`,
-                      color: '#fff', fontSize: '0.82rem', fontWeight: 700,
-                      transition: 'all 0.2s ease',
-                      boxShadow: `0 4px 15px ${colors.accent}30`,
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 20px ${colors.accent}40`; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 15px ${colors.accent}30`; }}
-                  >
-                    <span>{isEnrolled ? 'Continue' : 'View & Enroll'}</span>
-                    <ArrowRight size={14} />
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* 10. COMPACT VIEW MODE */}
-      {!loading && filteredCourses.length > 0 && viewMode === 'COMPACT' && (
-        <div className="courses-compact-view">
-          {filteredCourses.map((course) => {
-            const courseId = course.id || course._id;
-            const progress = userProgressMap[courseId];
-            const isEnrolled = progress !== undefined;
-            const isFav = favorites.includes(courseId);
-
-            return (
-              <div key={courseId} className="compact-course-card glass-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <span className={`badge ${getCategoryBadgeClass(course.category)}`} style={{ fontSize: '0.7rem' }}>
-                    {course.category || 'AI'}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#a5b4fc', background: 'rgba(99,102,241,0.15)', padding: '3px 10px', borderRadius: '6px', border: '1px solid rgba(99,102,241,0.3)' }}>
+                    Instructor Quiz
                   </span>
-                  <button
-                    type="button"
-                    className={`bookmark-btn ${isFav ? 'bookmarked' : ''}`}
-                    onClick={() => toggleFavorite(courseId)}
-                    style={{ width: '26px', height: '26px' }}
-                  >
-                    <Star size={12} fill={isFav ? '#fcd34d' : 'none'} />
-                  </button>
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <HelpCircle size={13} /> {quiz.questions?.length || 0} Questions
+                  </span>
                 </div>
 
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e2e8f0', margin: 0 }}>
+                  {quiz.title}
+                </h3>
+
+                <p style={{ fontSize: '0.82rem', color: '#64748b', margin: 0, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {quiz.description || 'No description provided.'}
+                </p>
+
+                <button
+                  onClick={() => handleStartQuiz(quiz)}
+                  style={{
+                    marginTop: 'auto',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    padding: '10px 16px', borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #6366f1, #818cf8)',
+                    color: '#fff', border: 'none', fontSize: '0.85rem', fontWeight: 700,
+                    cursor: 'pointer', transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 15px rgba(99,102,241,0.3)',
+                  }}
+                >
+                  <Award size={15} /> Start Assessment
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ 3. BOTTOM SECTION: REAL-TIME ONLINE CATALOG ═══ */}
+      {!loading && filteredCuratedCourses.length > 0 && (
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                padding: '8px 12px', borderRadius: '12px',
+                background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.3)',
+                color: '#67e8f9', display: 'flex', alignItems: 'center', gap: '6px'
+              }}>
+                <Globe size={18} />
+                <span style={{ fontSize: '0.85rem', fontWeight: 800 }}>External Catalog</span>
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, color: '#e2e8f0' }}>Real-Time Online Catalog</h2>
+                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Curated industry courses from Coursera, Udemy, and edX</span>
+              </div>
+            </div>
+            <span className="badge badge-info" style={{ padding: '4px 12px', fontSize: '0.78rem' }}>
+              {filteredCuratedCourses.length} Catalog Course{filteredCuratedCourses.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          {renderCourseGrid(filteredCuratedCourses)}
+        </div>
+      )}
+
+      {/* INTERACTIVE INSTRUCTOR QUIZ MODAL */}
+      {activeQuizModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 999999,
+            background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
+            animation: 'dashFadeSlideIn 0.2s ease',
+          }}
+          onClick={() => setActiveQuizModal(null)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: '100%', maxWidth: '680px', maxHeight: '85vh', overflow: 'auto',
+              background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+              border: '1px solid rgba(99,102,241,0.3)',
+              borderRadius: '24px', padding: '28px', color: '#f8fafc',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.7)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  padding: '8px 12px', borderRadius: '12px',
+                  background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)',
+                  color: '#818cf8', display: 'flex', alignItems: 'center', gap: '6px'
+                }}>
+                  <Award size={20} />
+                </div>
                 <div>
-                  <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: '4px 0' }}>{course.title}</h4>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.description}</p>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                  <span style={{ fontSize: '0.75rem', color: '#fcd34d', fontWeight: 600 }}>★ {course.rating || '4.8'}</span>
-                  <Link to={`/courses/${courseId}`} className="btn btn-primary btn-sm">
-                    <span>{isEnrolled ? 'Open' : 'Enroll'}</span>
-                    <ArrowRight size={12} />
-                  </Link>
+                  <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#e2e8f0' }}>{activeQuizModal.quiz.title}</h3>
+                  <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Instructor Assessment Module</span>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+              <button
+                onClick={() => setActiveQuizModal(null)}
+                style={{
+                  width: '32px', height: '32px', borderRadius: '8px',
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                  color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
 
-      {/* 11. LIST VIEW MODE */}
-      {!loading && filteredCourses.length > 0 && viewMode === 'LIST' && (
-        <div className="courses-list-view">
-          {filteredCourses.map((course) => {
-            const courseId = course.id || course._id;
-            const progress = userProgressMap[courseId];
-            const isEnrolled = progress !== undefined;
-            const badgeClass = getCategoryBadgeClass(course.category);
-
-            return (
-              <div key={courseId} className="glass-card course-list-item glass-card-hover">
-                <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span className={`badge ${badgeClass}`}>{course.category || 'AI & ML'}</span>
-                    <span style={{ fontSize: '0.75rem', color: '#fcd34d', fontWeight: 600 }}>★ {course.rating}</span>
-                    {isEnrolled && <span className="badge badge-success">Enrolled</span>}
-                  </div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{course.title}</h3>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{course.description}</p>
-                </div>
-
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '160px' }}>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
-                    <User size={12} /> {course.instructor || 'Dr. IntelliLearn'}
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
-                    <Clock size={12} /> {course.duration || 'Self-paced'}
-                  </div>
-                  {isEnrolled && (
-                    <div style={{ marginTop: '4px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
-                        <span>Progress</span>
-                        <strong>{progress}%</strong>
-                      </div>
-                      <div className="progress-bar-container" style={{ height: '6px' }}>
-                        <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
-                      </div>
+            {activeQuizModal.result ? (
+              /* Result View */
+              <div style={{ background: 'rgba(15, 23, 42, 0.8)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(99,102,241,0.4)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '48px', height: '48px', borderRadius: '14px',
+                      background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <Award size={26} color="#818cf8" />
                     </div>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div>
+                      <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '1.15rem', fontWeight: 800 }}>Assessment Completed!</h4>
+                      <span style={{ fontSize: '0.9rem', color: '#6ee7b7', fontWeight: 700 }}>Score: {activeQuizModal.result.score}%</span>
+                    </div>
+                  </div>
                   <button
-                    type="button"
-                    onClick={() => { setPreviewCourse(course); setPreviewTab('overview'); }}
-                    className="btn btn-secondary btn-sm"
-                    title="Quick preview syllabus"
+                    onClick={() => setActiveQuizModal({ ...activeQuizModal, selectedAnswers: {}, result: null })}
+                    style={{
+                      padding: '8px 16px', background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)',
+                      color: '#a5b4fc', borderRadius: '10px', fontWeight: 700, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem'
+                    }}
                   >
-                    <Eye size={15} />
+                    <RotateCcw size={14} /> Retake Assessment
                   </button>
-
-                  <Link to={`/courses/${courseId}`} className="btn btn-primary btn-sm">
-                    <span>{isEnrolled ? 'Continue' : 'Enroll'}</span>
-                    <ArrowRight size={14} />
-                  </Link>
                 </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '14px 18px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', marginBottom: '16px' }}>
+                  <p style={{ color: '#e2e8f0', fontWeight: 700, margin: '0 0 6px 0', fontSize: '0.88rem' }}>AI Instructor Feedback:</p>
+                  <p style={{ color: '#cbd5e1', fontSize: '0.85rem', margin: 0, lineHeight: 1.6 }}>{activeQuizModal.result.feedback}</p>
+                </div>
+
+                {activeQuizModal.result.recommendations?.length > 0 && (
+                  <div>
+                    <p style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '0.85rem', marginBottom: '8px' }}>Recommended Study Topics:</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {activeQuizModal.result.recommendations.map((rec, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: '#94a3b8' }}>
+                          <ChevronRight size={13} color="#818cf8" /> {rec}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            );
-          })}
+            ) : (
+              /* Questions Form */
+              <form onSubmit={handleQuizSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {activeQuizModal.quiz.questions?.map((q, qIdx) => (
+                  <div key={qIdx} style={{ background: 'rgba(255,255,255,0.02)', padding: '18px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <p style={{ color: '#f8fafc', fontWeight: 700, fontSize: '0.95rem', margin: '0 0 14px 0', lineHeight: 1.4 }}>
+                      {qIdx + 1}. {q.text}
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {q.options?.map((opt, optIdx) => (
+                        <label
+                          key={optIdx}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '12px',
+                            padding: '12px 16px', borderRadius: '10px',
+                            background: activeQuizModal.selectedAnswers[qIdx] === optIdx ? 'rgba(99, 102, 241, 0.18)' : 'rgba(255,255,255,0.02)',
+                            border: activeQuizModal.selectedAnswers[qIdx] === optIdx ? '1px solid rgba(99, 102, 241, 0.45)' : '1px solid rgba(255,255,255,0.05)',
+                            color: activeQuizModal.selectedAnswers[qIdx] === optIdx ? '#e2e8f0' : '#94a3b8',
+                            cursor: 'pointer', fontSize: '0.88rem', transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name={`modal_q_${qIdx}`}
+                            checked={activeQuizModal.selectedAnswers[qIdx] === optIdx}
+                            onChange={() => handleQuizOptionSelect(qIdx, optIdx)}
+                            style={{ accentColor: '#6366f1' }}
+                          />
+                          <span>{opt}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="submit"
+                  disabled={activeQuizModal.submitting}
+                  style={{
+                    padding: '12px 24px', background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                    color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 700,
+                    fontSize: '0.92rem', cursor: activeQuizModal.submitting ? 'not-allowed' : 'pointer',
+                    alignSelf: 'flex-start', boxShadow: '0 4px 20px rgba(99,102,241,0.3)'
+                  }}
+                >
+                  {activeQuizModal.submitting ? 'Submitting Assessment...' : 'Submit Assessment'}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       )}
 
-      {/* 12. COURSE DETAILS MODAL */}
+      {/* COURSE DETAILS MODAL */}
       {previewCourse && (
         <div
           style={{
@@ -1868,7 +2268,7 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {/* 13. STREAK REWARD CELEBRATION MODAL */}
+      {/* STREAK REWARD CELEBRATION MODAL */}
       {showStreakModal && (
         <div className="modal-overlay" onClick={() => setShowStreakModal(false)}>
           <div className="streak-celebration-card animate-slide-up" onClick={(e) => e.stopPropagation()}>
@@ -1893,7 +2293,7 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {/* 14. FLOATING AI ASSISTANT FAB & DRAWER */}
+      {/* FLOATING AI ASSISTANT FAB & DRAWER */}
       <button
         className="floating-ai-fab"
         onClick={() => setFabOpen((prev) => !prev)}
@@ -1948,7 +2348,7 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {/* 13. INTERACTIVE TIME SPENDING ANALYTICS MODAL WITH LIVE PIE CHART */}
+      {/* INTERACTIVE TIME SPENDING ANALYTICS MODAL WITH LIVE PIE CHART */}
       <TimeAnalyticsModal
         isOpen={showTimeAnalyticsModal}
         onClose={() => setShowTimeAnalyticsModal(false)}
