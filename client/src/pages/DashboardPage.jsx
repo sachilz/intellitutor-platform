@@ -1429,7 +1429,6 @@ const DashboardPage = () => {
           <div style={{ marginTop: '1.25rem' }}>
             <AiChatbotComponent userId={user?.email || 'student1@intellilearn.com'} />
           </div>
-          </div>
         </div>
       </div>
 
