@@ -41,8 +41,12 @@ public class GeminiLlmProvider implements LlmProvider {
             String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
 
             Map<String, Object> textPart = new HashMap<>();
-            textPart.put("text", "You are an expert DevOps and Linux command assistant. User request: " + prompt + 
-                    ". Output JSON format with keys: 'command', 'explanation', 'riskLevel' (LOW, MEDIUM, HIGH, CRITICAL). Output JSON only.");
+            String promptText = prompt;
+            if (prompt != null && !prompt.contains("IntelliTutor AI Assistant") && !prompt.contains("INSTRUCTIONS") && !prompt.contains("RETRIEVED KNOWLEDGE")) {
+                promptText = "You are an expert DevOps and Linux command assistant. User request: " + prompt + 
+                        ". Output JSON format with keys: 'command', 'explanation', 'riskLevel' (LOW, MEDIUM, HIGH, CRITICAL). Output JSON only.";
+            }
+            textPart.put("text", promptText);
 
             Map<String, Object> content = new HashMap<>();
             content.put("parts", Collections.singletonList(textPart));

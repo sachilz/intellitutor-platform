@@ -124,17 +124,74 @@ public class ChatOrchestratorService {
 
         String cid = courseId != null ? courseId.toLowerCase() : "";
         String q = query != null ? query.toLowerCase() : "";
+        String title = courseTitle != null ? courseTitle : (courseId != null ? courseId : "Course");
 
-        if (cid.contains("c_coursera_5") || cid.contains("ibm-data-science") || (courseTitle != null && courseTitle.toLowerCase().contains("ibm data science"))) {
-            if (q.contains("module 1") || q.contains("what is data science")) {
-                return "📚 **IBM Data Science — Module 1: What is Data Science?**\n\n" +
-                        "Module 1 introduces the field of Data Science, exploring its methodology, business applications, and key practitioner roles:\n\n" +
-                        "• **What is Data Science?**: The interdisciplinary field combining Domain Expertise, Programming (Python/R), and Statistics to extract actionable insights from structured & unstructured data.\n" +
-                        "• **Data Science vs Machine Learning**: Data Science covers the entire data lifecycle (collection, wrangling, exploration, modeling, & communication), whereas Machine Learning focuses specifically on algorithmic model training.\n" +
-                        "• **Key Tools Introduced**: Jupyter Notebooks, RStudio, IBM Watson Studio, Pandas, & SQL.\n\n" +
-                        "How can I help you explore Module 1 concepts or code exercises?";
+        // Machine Learning Specialization & ML Courses
+        if (cid.contains("c_coursera_2") || cid.contains("c_udemy_1") || cid.contains("c_coursera_8") || cid.contains("machine-learning") || title.toLowerCase().contains("machine learning")) {
+            if (q.contains("module 1") || q.contains("supervised") || q.contains("regression") || q.contains("explain")) {
+                return "🤖 **" + title + " — Supervised Learning & Regression**\n\n" +
+                        "Supervised Learning is the cornerstone of modern Machine Learning:\n\n" +
+                        "• **Linear Regression**: Predicts continuous numerical targets using cost functions (Mean Squared Error) and Gradient Descent minimization: `J(w,b) = (1/2m) ∑ (f(x) - y)²`.\n" +
+                        "• **Logistic Regression**: Used for binary classification, mapping outputs through the Sigmoid activation function: `g(z) = 1 / (1 + e^-z)`.\n" +
+                        "• **Model Evaluation**: Split datasets into Train/Dev/Test sets to diagnose Overfitting (High Variance) vs Underfitting (High Bias) and apply L2 Regularization (`λ`).\n\n" +
+                        "How can I assist your study session on this topic today?";
             }
-            return "📚 **IBM Data Science Professional Certificate**\n\n" +
+            if (q.contains("quiz") || q.contains("practice") || q.contains("test")) {
+                return "📝 **Practice Knowledge Assessment — " + title + "**\n\n" +
+                        "**Question 1**: What is the primary purpose of the Cost Function `J(w,b)` in Linear Regression?\n" +
+                        "• *Answer*: It measures the error between predicted outputs `f(x)` and true targets `y`, allowing Gradient Descent to optimize parameter weights `w` and bias `b`.\n\n" +
+                        "**Question 2**: How does Regularization (`λ`) prevent Overfitting?\n" +
+                        "• *Answer*: By penalizing large weight magnitudes in the loss function, reducing model complexity.";
+            }
+            return "🤖 **" + title + " AI Assistant**\n\n" +
+                    "Welcome to your AI Tutor for **" + title + "**! Key topics covered:\n" +
+                    "• **Supervised Learning**: Linear/Logistic Regression, Cost Functions, & Gradient Descent.\n" +
+                    "• **Advanced Algorithms**: Multi-layer Neural Networks, Decision Trees, Random Forests, & XGBoost.\n" +
+                    "• **Unsupervised Learning**: K-Means Clustering, Anomaly Detection, & Recommender Systems.\n\n" +
+                    "Ask me any question about algorithms, math concepts, or Python Scikit-Learn/TensorFlow code!";
+        }
+
+        // Generative AI & Large Language Models Courses
+        if (cid.contains("c_coursera_3") || cid.contains("c_coursera_7") || cid.contains("c_udemy_2") || cid.contains("c_udemy_3") || cid.contains("c_udemy_8") || cid.contains("c_google_1") || title.toLowerCase().contains("generative") || title.toLowerCase().contains("llm") || title.toLowerCase().contains("prompt")) {
+            if (q.contains("module 1") || q.contains("transformer") || q.contains("attention") || q.contains("explain")) {
+                return "✨ **" + title + " — Transformer Architecture & LLM Foundations**\n\n" +
+                        "Generative AI models rely on the Transformer architecture (*Attention Is All You Need*):\n\n" +
+                        "• **Self-Attention Mechanism**: Calculates relationship weights between input tokens using Query (Q), Key (K), and Value (V) matrices: `Attention(Q,K,V) = softmax(QKᵀ / √dₖ) V`.\n" +
+                        "• **Fine-Tuning (PEFT / LoRA)**: Parameter-Efficient Fine-Tuning freezes original model weights and injects trainable low-rank decomposition matrices, reducing memory by up to 90%.\n" +
+                        "• **RAG Architecture**: Combines Dense Vector Embeddings (ChromaDB / Pinecone) with LLMs to supply real-time domain knowledge without re-training.\n\n" +
+                        "How would you like to explore this topic further?";
+            }
+            return "✨ **" + title + " AI Assistant**\n\n" +
+                    "Welcome to your Generative AI Tutor for **" + title + "**!\n" +
+                    "• **LLM Core**: Transformer encoders/decoders, Self-Attention, & token embeddings.\n" +
+                    "• **Prompt Engineering**: Persona, Few-Shot, & ReAct reasoning patterns.\n" +
+                    "• **Application Building**: LangChain, RAG vector retrieval, & Agent tool integration.\n\n" +
+                    "Feel free to ask about prompt design, model fine-tuning, or code examples!";
+        }
+
+        // Deep Learning & PyTorch Courses
+        if (cid.contains("c_coursera_4") || cid.contains("c_udemy_4") || title.toLowerCase().contains("deep learning") || title.toLowerCase().contains("pytorch")) {
+            return "🧠 **" + title + " AI Assistant**\n\n" +
+                    "Welcome! This course covers Deep Learning and Neural Network architectures:\n" +
+                    "• **Neural Network Building**: Forward propagation, Activation functions (ReLU, Sigmoid), & Backpropagation.\n" +
+                    "• **Convolutional Networks (CNNs)**: Image classification, ResNet skip connections, & object detection.\n" +
+                    "• **PyTorch Framework**: Tensors, Autograd, Custom Datasets/DataLoaders, & CUDA GPU acceleration.\n\n" +
+                    "What deep learning topic or PyTorch code exercise would you like to work on?";
+        }
+
+        // Web Development & Computer Science Courses
+        if (cid.contains("c_udemy_7") || cid.contains("c_meta_1") || cid.contains("c_edx_1") || title.toLowerCase().contains("web development") || title.toLowerCase().contains("front-end") || title.toLowerCase().contains("computer science")) {
+            return "🌐 **" + title + " AI Assistant**\n\n" +
+                    "Welcome! I am your AI Tutor for **" + title + "**:\n" +
+                    "• **Frontend**: Modern HTML5, CSS Flexbox/Grid, Responsive Design, JavaScript ES6+, & React Components.\n" +
+                    "• **Backend & DB**: Node.js, Express RESTful APIs, Middleware, and Relational Databases (SQL/PostgreSQL).\n" +
+                    "• **Full-Stack Integration**: Connecting React frontends with backend APIs and state management.\n\n" +
+                    "Ask me about any module, web concept, or code debugging question!";
+        }
+
+        // IBM Data Science
+        if (cid.contains("c_coursera_5") || cid.contains("ibm-data-science") || title.toLowerCase().contains("ibm data science")) {
+            return "📊 **IBM Data Science Professional Certificate**\n\n" +
                     "Welcome! This program covers end-to-end Data Science & Analytics:\n" +
                     "• **Python & SQL**: Data structures, functions, Pandas DataFrames, and SQL relational queries.\n" +
                     "• **Data Visualization**: Matplotlib, Seaborn, & Folium interactive geospatial maps.\n" +
@@ -142,8 +199,9 @@ public class ChatOrchestratorService {
                     "Ask me about any module, topic, or code example!";
         }
 
-        if (cid.contains("c_coursera_1") || cid.contains("ai-for-everyone")) {
-            return "📚 **AI For Everyone (Andrew Ng)**\n\n" +
+        // AI For Everyone
+        if (cid.contains("c_coursera_1") || cid.contains("ai-for-everyone") || title.toLowerCase().contains("ai for everyone")) {
+            return "💡 **AI For Everyone (Andrew Ng)**\n\n" +
                     "This course provides a non-technical introduction to Artificial Intelligence:\n" +
                     "• **Supervised Learning**: Mapping input (X) to output (Y) using labeled datasets.\n" +
                     "• **Machine Learning vs Data Science**: Building predictive models vs analyzing data to drive strategic decisions.\n" +
@@ -151,8 +209,9 @@ public class ChatOrchestratorService {
                     "What topic would you like to explore today?";
         }
 
-        if (cid.contains("c_coursera_6") || cid.contains("cybersecurity")) {
-            return "📚 **Google Cybersecurity Professional Certificate**\n\n" +
+        // Google Cybersecurity
+        if (cid.contains("c_coursera_6") || cid.contains("cybersecurity") || title.toLowerCase().contains("cybersecurity")) {
+            return "🛡️ **Google Cybersecurity Professional Certificate**\n\n" +
                     "This program covers foundational security defenses:\n" +
                     "• **SIEM Tools**: Security Information & Event Management (Chronicle & Splunk).\n" +
                     "• **Linux & SQL**: File permissions, shell pipelines, & querying database logs.\n" +
@@ -160,6 +219,7 @@ public class ChatOrchestratorService {
                     "How can I assist your cybersecurity learning today?";
         }
 
+        // Platform architecture
         if ("PROJECT_SPECIFIC".equals(category) || q.contains("intellitutor") || q.contains("microservice")) {
             return "🟢 **IntelliTutor Project Architecture**\n\n" +
                     "IntelliTutor is an educational cloud-native LMS platform built with 5 Spring Boot microservices:\n" +
@@ -171,6 +231,13 @@ public class ChatOrchestratorService {
                     "• **tutor-service** (Port 8085): AI Chatbot RAG engine.";
         }
 
-        return "The IntelliTutor Platform provides interactive learning materials, quizzes, and course-aware AI assistance. How can I assist your study session today?";
+        // Generic Course Fallback
+        String topicQuery = (query != null && !query.isBlank()) ? query : "course concepts";
+        return "📚 **" + title + " — AI Tutor Assistant**\n\n" +
+                "Here is an overview of **" + topicQuery + "** in **" + title + "**:\n\n" +
+                "• **Key Focus**: Mastering foundational principles, practical techniques, and real-world applications.\n" +
+                "• **Core Takeaway**: Understanding the underlying theory and building hands-on skills step-by-step.\n" +
+                "• **Next Steps**: Reviewing module materials, working through practice exercises, and testing your knowledge.\n\n" +
+                "How can I assist your study session further today?";
     }
 }

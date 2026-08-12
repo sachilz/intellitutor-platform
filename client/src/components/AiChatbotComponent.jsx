@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { sendChatMessage, clearChatSession } from '../api/tutorApi';
+import MarkdownRenderer from '../utils/markdownRenderer';
 import {
   Bot,
   User,
@@ -219,7 +220,51 @@ export default function AiChatbotComponent({
     });
   };
 
+  const getDynamicQuestions = (catId) => {
+    const cat = RECOMMENDED_CATEGORIES.find(c => c.id === catId) || RECOMMENDED_CATEGORIES[0];
+    if (catId !== 'LEARN') return cat.questions;
+
+    const catName = (courseCategory || '').toLowerCase();
+    const titleName = (courseTitle || '').toLowerCase();
+
+    if (catName.includes('ai') || catName.includes('ml') || titleName.includes('machine learning')) {
+      return [
+        'Explain Supervised vs Unsupervised Learning',
+        'What is the difference between Linear & Logistic Regression?',
+        'How does Gradient Descent minimize cost functions?',
+        'What is overfitting and how does regularization prevent it?'
+      ];
+    }
+    if (catName.includes('genai') || titleName.includes('generative') || titleName.includes('llm') || titleName.includes('prompt')) {
+      return [
+        'What is the Self-Attention mechanism in Transformers?',
+        'Explain Parameter-Efficient Fine-Tuning (LoRA / PEFT)',
+        'How does Retrieval-Augmented Generation (RAG) work?',
+        'What is the difference between Pre-training & Fine-Tuning?'
+      ];
+    }
+    if (catName.includes('web') || titleName.includes('web') || titleName.includes('react') || titleName.includes('front-end')) {
+      return [
+        'Explain Flexbox vs CSS Grid layout models',
+        'How do Async/Await and Promises work in JavaScript?',
+        'What is the React Virtual DOM and Component State?',
+        'How do RESTful APIs communicate between client and server?'
+      ];
+    }
+    if (catName.includes('data') || titleName.includes('data science') || titleName.includes('python')) {
+      return [
+        'What is the difference between Data Science and Machine Learning?',
+        'How do Pandas DataFrames manipulate structured data?',
+        'What is the role of SQL JOIN queries in data analytics?',
+        'Explain Exploratory Data Analysis (EDA) best practices'
+      ];
+    }
+
+    return cat.questions;
+  };
+
   const currentCategoryData = RECOMMENDED_CATEGORIES.find(c => c.id === activeCategory) || RECOMMENDED_CATEGORIES[0];
+  const activeQuestions = getDynamicQuestions(activeCategory);
 
   return (
     <div
@@ -320,7 +365,7 @@ export default function AiChatbotComponent({
 
         {/* Question Pill Grid */}
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-          {currentCategoryData.questions.map((qText, i) => (
+          {activeQuestions.map((qText, i) => (
             <button
               key={i}
               onClick={() => handleSend(qText)}
@@ -374,7 +419,7 @@ export default function AiChatbotComponent({
                   boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
                 }}
               >
-                {renderFormattedText(m.text)}
+                <MarkdownRenderer content={m.text} />
 
                 {/* Troubleshooting Advice Card */}
                 {m.troubleshooting && (

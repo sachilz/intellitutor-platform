@@ -10,6 +10,7 @@ import { CourseGridSkeleton } from '../components/SkeletonLoader';
 import { CURATED_COURSES, getCategoryBadgeClass } from '../data/coursesCatalog';
 import { getStoredProgressMap, saveStoredProgressMap, setStoredCourseProgress, removeStoredCourseProgress } from '../utils/progressStorage';
 import TimeAnalyticsModal from '../components/TimeAnalyticsModal';
+import MarkdownRenderer, { renderMarkdown } from '../utils/markdownRenderer';
 
 import { 
   BookOpen, 
@@ -478,191 +479,7 @@ const DashboardPage = () => {
 
 
 
-  // Render markdown text to styled JSX
-  const renderMarkdown = (text) => {
-    if (!text) return null;
-    const lines = text.split('\n');
-    const elements = [];
-    let codeBlock = null;
-    let listItems = [];
-    let listType = null; // 'ul' or 'ol'
 
-    const flushList = () => {
-      if (listItems.length > 0) {
-        const Tag = listType === 'ol' ? 'ol' : 'ul';
-        elements.push(
-          <Tag key={`list-${elements.length}`} style={{
-            margin: '8px 0', paddingLeft: '20px', color: '#cbd5e1',
-            listStyleType: listType === 'ol' ? 'decimal' : 'disc'
-          }}>
-            {listItems.map((li, j) => (
-              <li key={j} style={{ margin: '4px 0', lineHeight: 1.6, fontSize: '0.86rem' }}>
-                {renderInline(li)}
-              </li>
-            ))}
-          </Tag>
-        );
-        listItems = [];
-        listType = null;
-      }
-    };
-
-    const renderInline = (str) => {
-      if (!str) return str;
-      // Process inline markdown: bold, italic, inline code
-      const parts = [];
-      let remaining = str;
-      let key = 0;
-      // Process backtick code first, then bold, then italic
-      const regex = /(`[^`]+`)|\*\*\*([^*]+)\*\*\*|\*\*([^*]+)\*\*|\*([^*]+)\*/g;
-      let lastIndex = 0;
-      let match;
-      while ((match = regex.exec(remaining)) !== null) {
-        if (match.index > lastIndex) {
-          parts.push(<span key={key++}>{remaining.slice(lastIndex, match.index)}</span>);
-        }
-        if (match[1]) {
-          // Inline code
-          parts.push(
-            <code key={key++} style={{
-              background: 'rgba(99,102,241,0.15)', color: '#a5b4fc',
-              padding: '1px 6px', borderRadius: '4px', fontSize: '0.82em',
-              fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-              border: '1px solid rgba(99,102,241,0.2)'
-            }}>{match[1].slice(1, -1)}</code>
-          );
-        } else if (match[2]) {
-          // Bold italic
-          parts.push(<strong key={key++} style={{ fontWeight: 700, fontStyle: 'italic', color: '#f1f5f9' }}>{match[2]}</strong>);
-        } else if (match[3]) {
-          // Bold
-          parts.push(<strong key={key++} style={{ fontWeight: 700, color: '#f1f5f9' }}>{match[3]}</strong>);
-        } else if (match[4]) {
-          // Italic
-          parts.push(<em key={key++} style={{ fontStyle: 'italic', color: '#e2e8f0' }}>{match[4]}</em>);
-        }
-        lastIndex = match.index + match[0].length;
-      }
-      if (lastIndex < remaining.length) {
-        parts.push(<span key={key++}>{remaining.slice(lastIndex)}</span>);
-      }
-      return parts.length > 0 ? parts : str;
-    };
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-
-      // Code block start/end
-      if (line.trim().startsWith('```')) {
-        flushList();
-        if (codeBlock === null) {
-          const lang = line.trim().slice(3).trim();
-          codeBlock = { lang, lines: [] };
-          continue;
-        } else {
-          elements.push(
-            <div key={`code-${i}`} style={{
-              margin: '10px 0', borderRadius: '10px', overflow: 'hidden',
-              border: '1px solid rgba(99,102,241,0.2)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-            }}>
-              {codeBlock.lang && (
-                <div style={{
-                  padding: '6px 14px', background: 'rgba(99,102,241,0.12)',
-                  borderBottom: '1px solid rgba(99,102,241,0.15)',
-                  fontSize: '0.7rem', color: '#818cf8', fontWeight: 700,
-                  textTransform: 'uppercase', letterSpacing: '0.05em'
-                }}>{codeBlock.lang}</div>
-              )}
-              <pre style={{
-                margin: 0, padding: '14px 16px', background: '#020617',
-                overflowX: 'auto', fontSize: '0.82rem', lineHeight: 1.65,
-                fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-                color: '#e2e8f0'
-              }}><code>{codeBlock.lines.join('\n')}</code></pre>
-            </div>
-          );
-          codeBlock = null;
-          continue;
-        }
-      }
-      if (codeBlock !== null) {
-        codeBlock.lines.push(line);
-        continue;
-      }
-
-      // Horizontal rule
-      if (/^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())) {
-        flushList();
-        elements.push(<hr key={`hr-${i}`} style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.08)', margin: '12px 0' }} />);
-        continue;
-      }
-
-      // Headings
-      const headingMatch = line.match(/^(#{1,4})\s+(.+)/);
-      if (headingMatch) {
-        flushList();
-        const level = headingMatch[1].length;
-        const headingStyles = {
-          1: { fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', margin: '16px 0 8px 0', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '6px' },
-          2: { fontSize: '1.02rem', fontWeight: 700, color: '#f1f5f9', margin: '14px 0 6px 0' },
-          3: { fontSize: '0.92rem', fontWeight: 700, color: '#e2e8f0', margin: '12px 0 5px 0' },
-          4: { fontSize: '0.86rem', fontWeight: 600, color: '#cbd5e1', margin: '10px 0 4px 0' },
-        };
-        elements.push(
-          <div key={`h-${i}`} style={headingStyles[level] || headingStyles[4]}>
-            {renderInline(headingMatch[2])}
-          </div>
-        );
-        continue;
-      }
-
-      // Numbered list items (1. 2. etc.)
-      const olMatch = line.match(/^\s*(\d+)\.\s+(.+)/);
-      if (olMatch) {
-        if (listType !== 'ol') flushList();
-        listType = 'ol';
-        listItems.push(olMatch[2]);
-        continue;
-      }
-
-      // Bullet list items
-      const ulMatch = line.match(/^\s*[-•*]\s+(.+)/);
-      if (ulMatch) {
-        if (listType !== 'ul') flushList();
-        listType = 'ul';
-        listItems.push(ulMatch[1]);
-        continue;
-      }
-
-      // Regular line / empty line
-      flushList();
-      if (line.trim() === '') {
-        elements.push(<div key={`empty-${i}`} style={{ height: '6px' }} />);
-      } else {
-        elements.push(
-          <div key={`p-${i}`} style={{ margin: '2px 0', lineHeight: 1.65 }}>
-            {renderInline(line)}
-          </div>
-        );
-      }
-    }
-
-    // Flush remaining
-    flushList();
-    if (codeBlock !== null) {
-      elements.push(
-        <pre key="code-end" style={{
-          margin: '10px 0', padding: '14px 16px', background: '#020617',
-          borderRadius: '10px', overflowX: 'auto', fontSize: '0.82rem',
-          lineHeight: 1.65, fontFamily: "'JetBrains Mono', monospace",
-          color: '#e2e8f0', border: '1px solid rgba(99,102,241,0.2)'
-        }}><code>{codeBlock.lines.join('\n')}</code></pre>
-      );
-    }
-
-    return elements;
-  };
 
   const handleClearTerminalChat = () => {
     setTerminalChat([
@@ -2660,7 +2477,7 @@ const DashboardPage = () => {
             </button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '240px', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
             {fabMessages.map((msg, i) => (
               <div
                 key={i}
@@ -2673,7 +2490,7 @@ const DashboardPage = () => {
                   maxWidth: '85%'
                 }}
               >
-                {msg.text}
+                {msg.sender === 'user' ? msg.text : <MarkdownRenderer content={msg.text} />}
               </div>
             ))}
           </div>
