@@ -2856,7 +2856,7 @@ select.form-control {
   }
 
   .ins-main {
-    padding: var(--space-5);
+    padding: var(--space-4) var(--space-3);
   }
 
   .ins-stats-row {
@@ -2877,6 +2877,252 @@ select.form-control {
 
   .ins-header {
     flex-direction: column;
+    align-items: flex-start;
     gap: var(--space-3);
+  }
+
+  .ins-create-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   COMPREHENSIVE MOBILE DEVICE RESPONSIVENESS (320px - 640px)
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Global Mobile Overflow & Base Reset */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Mobile Input Auto-Zoom Prevention on iOS (16px base font size for touch inputs) */
+@media (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Mobile Layout Padding & Width Fixes */
+@media (max-width: 640px) {
+  .main-content {
+    padding: 0.75rem 0.6rem !important;
+  }
+
+  .navbar {
+    padding: 0.5rem 0.75rem !important;
+  }
+
+  .navbar-brand {
+    font-size: 1rem !important;
+    gap: 6px !important;
+  }
+
+  .nav-brand-badge {
+    display: none !important;
+  }
+
+  .mobile-menu-drawer {
+    padding: 0.75rem 0.5rem !important;
+  }
+
+  .mobile-menu-drawer .nav-link,
+  .mobile-menu-drawer .btn {
+    padding: 0.75rem 1rem !important;
+    font-size: 0.9rem !important;
+    min-height: 44px;
+  }
+
+  /* Auth Screens Mobile Adjustments */
+  .auth-container {
+    padding: 0.75rem 0.4rem !important;
+    min-height: auto !important;
+  }
+
+  .auth-split-wrapper {
+    grid-template-columns: 1fr !important;
+    max-width: 100% !important;
+    border-radius: var(--radius-lg) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  .auth-card {
+    padding: 1.25rem 1rem !important;
+  }
+
+  .auth-form-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Dashboard Screen Mobile Adjustments */
+  .welcome-banner {
+    padding: 1.25rem 1rem !important;
+    border-radius: var(--radius-lg) !important;
+  }
+
+  .welcome-banner h1 {
+    font-size: 1.35rem !important;
+  }
+
+  .welcome-banner p {
+    font-size: 0.82rem !important;
+  }
+
+  .dashboard-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+  }
+
+  .search-input-wrapper {
+    width: 100% !important;
+  }
+
+  .category-filter-bar {
+    overflow-x: auto !important;
+    padding-bottom: 6px !important;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap !important;
+    max-width: 100%;
+  }
+
+  .category-chip {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  .courses-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.85rem !important;
+  }
+
+  .course-card {
+    padding: 1rem !important;
+    border-radius: var(--radius-md) !important;
+  }
+
+  /* Instructor Page Mobile Adjustments */
+  .ins-dashboard {
+    min-height: auto !important;
+  }
+
+  .ins-main {
+    padding: 0.75rem 0.5rem !important;
+    gap: 1rem !important;
+  }
+
+  .ins-header-greeting {
+    font-size: 1.3rem !important;
+  }
+
+  .ins-header-subtitle {
+    font-size: 0.8rem !important;
+  }
+
+  .ins-stats-row {
+    grid-template-columns: 1fr !important;
+    gap: 0.6rem !important;
+  }
+
+  .ins-stat-tile {
+    padding: 0.85rem 1rem !important;
+  }
+
+  .ins-tab-bar {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ins-tab {
+    flex: 1;
+    justify-content: center;
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.8rem !important;
+  }
+
+  .ins-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  .ins-card-body {
+    padding: 1rem !important;
+  }
+
+  .ins-form-card {
+    padding: 1rem !important;
+  }
+
+  /* Profile Page Mobile Adjustments */
+  .profile-header-container {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  .profile-stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.6rem !important;
+  }
+
+  .profile-nav-tabs {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100% !important;
+  }
+
+  /* Modals Mobile Adjustments */
+  .ins-modal,
+  .modal,
+  .quiz-modal,
+  .preview-modal {
+    width: 96% !important;
+    max-height: 92vh !important;
+    padding: 1rem !important;
+    margin: 0 auto !important;
+  }
+
+  .ins-modal-header {
+    padding: 0.85rem 1rem !important;
+  }
+
+  .ins-modal-body {
+    padding: 0.85rem 1rem !important;
+  }
+
+  /* Toast Notification Mobile Adjustment */
+  .toast-container {
+    bottom: 8px !important;
+    right: 8px !important;
+    left: 8px !important;
+    width: auto !important;
+  }
+
+  .toast {
+    padding: 0.75rem 1rem !important;
+  }
+}
+
+/* Extra Small Phones (320px - 400px) */
+@media (max-width: 400px) {
+  .profile-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .btn {
+    padding: 0.55rem 0.9rem !important;
+    font-size: 0.8rem !important;
+  }
+
+  .ins-header-greeting {
+    font-size: 1.15rem !important;
   }
 }
