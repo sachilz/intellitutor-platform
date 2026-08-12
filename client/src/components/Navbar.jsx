@@ -3,6 +3,7 @@ import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { isInstructor, getDefaultDashboard } from '../utils/roleUtils';
 import Avatar from './Avatar';
+import LogoIcon from './LogoIcon';
 import { 
   Sparkles, 
   LayoutDashboard, 
@@ -72,7 +73,7 @@ const Navbar = () => {
         {/* Brand Logo & Version Pill */}
         <Link to={isAuthenticated ? dashboardPath : '/login'} className="navbar-brand" onClick={closeMobileMenu}>
           <span className="brand-icon-wrapper">
-            <Sparkles size={20} />
+            <LogoIcon size={34} />
           </span>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <span style={{ fontWeight: 800, fontSize: '1.25rem', letterSpacing: '-0.02em' }}>IntelliLearn</span>
@@ -118,16 +119,7 @@ const Navbar = () => {
                 </NavLink>
               )}
 
-              {/* Instructors can also browse the course catalog */}
-              {userIsInstructor && (
-                <NavLink
-                  to="/dashboard"
-                  className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
-                >
-                  <LayoutDashboard size={16} />
-                  Courses
-                </NavLink>
-              )}
+
 
               <NavLink
                 to="/profile"
@@ -208,16 +200,7 @@ const Navbar = () => {
                 </NavLink>
               )}
 
-              {userIsInstructor && (
-                <NavLink
-                  to="/dashboard"
-                  onClick={closeMobileMenu}
-                  className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
-                >
-                  <LayoutDashboard size={18} />
-                  Courses
-                </NavLink>
-              )}
+
 
               <NavLink
                 to="/profile"

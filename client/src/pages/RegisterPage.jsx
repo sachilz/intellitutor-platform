@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import LogoIcon from '../components/LogoIcon';
 import { 
   UserPlus, 
   AlertCircle, 
@@ -76,7 +77,7 @@ const RegisterPage = () => {
         <div className="auth-branding-panel">
           <div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(6, 182, 212, 0.15)', border: '1px solid rgba(6, 182, 212, 0.35)', padding: '4px 14px', borderRadius: '20px', fontSize: '0.8rem', color: '#67e8f9', fontWeight: 600, marginBottom: '16px' }}>
-              <Sparkles size={14} color="var(--neon-cyan)" /> Join IntelliLearn AI Hub
+              <LogoIcon size={18} /> Join IntelliLearn AI Hub
             </div>
             <h1 style={{ fontSize: '2.2rem', fontWeight: 800, lineHeight: 1.2, marginBottom: '12px' }}>
               Create Your AI Student Profile
@@ -109,8 +110,8 @@ const RegisterPage = () => {
         {/* Right Form Card */}
         <div className="auth-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <div className="auth-header">
-            <div style={{ display: 'inline-flex', padding: '12px', background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', borderRadius: '16px', marginBottom: '12px' }}>
-              <UserPlus size={26} color="var(--primary-light)" />
+            <div style={{ display: 'inline-flex', padding: '2px', background: 'transparent', borderRadius: '16px', marginBottom: '12px' }}>
+              <LogoIcon size={52} />
             </div>
             <h2>Create Account</h2>
             <p>Join the IntelliLearn AI Platform</p>

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { createCourse, getCourses, deleteCourse } from '../api/courseApi';
 import { createQuiz, getQuizzes, getQuizAttempts } from '../api/quizApi';
+import LogoIcon from '../components/LogoIcon';
 import {
   Award,
   BookOpen,
@@ -23,6 +24,13 @@ import {
   Clock,
   HelpCircle,
   Users,
+  GraduationCap,
+  TrendingUp,
+  Activity,
+  Settings,
+  ChevronRight,
+  Search,
+  Filter,
 } from 'lucide-react';
 
 // ─── INSTRUCTOR DASHBOARD ─────────────────────────────────────────
@@ -84,7 +92,6 @@ const InstructorPage = () => {
   const switchTab = (tab) => setActiveTab(tab);
 
   const getQuizzesForCourse = (courseId) => {
-    // Backend doesn't filter by courseId yet — show all quizzes for now
     return quizzes;
   };
 
@@ -193,7 +200,6 @@ const InstructorPage = () => {
   // ─── VIEW SUBMISSIONS ──────────────────────────────────────────
   const handleViewSubmissions = async (quiz) => {
     try {
-      // Backend only supports per-user attempts — fetch for common demo user
       const attempts = await getQuizAttempts(quiz.id, 'student1@intellilearn.com').catch(() => []);
       setSubmissionsModal({ quiz, attempts: Array.isArray(attempts) ? attempts : [] });
     } catch {
@@ -201,319 +207,399 @@ const InstructorPage = () => {
     }
   };
 
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good Morning';
+    if (h < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  })();
+
   // ─── RENDER ─────────────────────────────────────────────────────
   return (
-    <div className="instructor-container">
-      <div className="instructor-split-wrapper">
-        {/* ── Left Branding Sidebar ── */}
-        <aside className="instructor-branding-panel">
-          <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.35)', padding: '4px 14px', borderRadius: '20px', fontSize: '0.8rem', color: '#d8b4fe', fontWeight: 600, marginBottom: '16px' }}>
-              <Sparkles size={14} color="var(--neon-violet)" /> Instructor Console
-            </div>
-            <h1 style={{ fontSize: '1.65rem', fontWeight: 800, lineHeight: 1.2, marginBottom: '8px' }}>
-              Welcome, {user?.username || 'Instructor'}
-            </h1>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.6 }}>
-              Manage your courses, create assessments, and track student performance.
-            </p>
+    <div className="ins-dashboard">
+      {/* ── Collapsible Sidebar ── */}
+      <aside className="ins-sidebar">
+        <div className="ins-sidebar-top">
+          <div className="ins-sidebar-brand">
+            <LogoIcon size={32} />
+            <span className="ins-sidebar-brand-text">IntelliLearn</span>
           </div>
 
-          {/* Stat Cards */}
-          <div className="instructor-stat-cards">
-            <div className="instructor-stat-card">
-              <div className="instructor-stat-icon" style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)' }}>
-                <BookOpen size={20} color="#818cf8" />
-              </div>
-              <div className="instructor-stat-info">
-                <span className="instructor-stat-value" style={{ color: '#a5b4fc' }}>{courses.length}</span>
-                <span className="instructor-stat-label">Courses</span>
-              </div>
-            </div>
-            <div className="instructor-stat-card">
-              <div className="instructor-stat-icon" style={{ background: 'rgba(6,182,212,0.15)', border: '1px solid rgba(6,182,212,0.3)' }}>
-                <FileText size={20} color="#67e8f9" />
-              </div>
-              <div className="instructor-stat-info">
-                <span className="instructor-stat-value" style={{ color: '#67e8f9' }}>{quizzes.length}</span>
-                <span className="instructor-stat-label">Quizzes</span>
-              </div>
-            </div>
-            <div className="instructor-stat-card">
-              <div className="instructor-stat-icon" style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)' }}>
-                <BarChart3 size={20} color="#6ee7b7" />
-              </div>
-              <div className="instructor-stat-info">
-                <span className="instructor-stat-value" style={{ color: '#6ee7b7' }}>Active</span>
-                <span className="instructor-stat-label">Status</span>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
-            IntelliLearn Platform © 2026 • Instructor Tools v2.0
-          </div>
-        </aside>
-
-        {/* ── Right Content Panel ── */}
-        <div className="instructor-content-panel">
-          {/* Header */}
-          <div className="instructor-content-header">
-            <div style={{ display: 'inline-flex', padding: '10px', background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', borderRadius: '14px' }}>
-              <Award size={24} color="var(--primary-light)" />
-            </div>
-            <h2>Instructor Dashboard</h2>
-          </div>
-
-          {/* Tabs */}
-          <div className="instructor-tabs">
-            <button className={`instructor-tab-btn ${activeTab === 'COURSES' ? 'active' : ''}`} onClick={() => switchTab('COURSES')}>
-              <BookOpen size={15} /> My Courses
+          <nav className="ins-sidebar-nav">
+            <button
+              className={`ins-nav-item ${activeTab === 'COURSES' ? 'active' : ''}`}
+              onClick={() => switchTab('COURSES')}
+            >
+              <BookOpen size={18} />
+              <span>My Courses</span>
+              <span className="ins-nav-count">{courses.length}</span>
             </button>
-            <button className={`instructor-tab-btn ${activeTab === 'QUIZZES' ? 'active' : ''}`} onClick={() => switchTab('QUIZZES')}>
-              <FileText size={15} /> Quizzes
+            <button
+              className={`ins-nav-item ${activeTab === 'QUIZZES' ? 'active' : ''}`}
+              onClick={() => switchTab('QUIZZES')}
+            >
+              <FileText size={18} />
+              <span>Quizzes</span>
+              <span className="ins-nav-count">{quizzes.length}</span>
+            </button>
+          </nav>
+        </div>
+
+        <div className="ins-sidebar-bottom">
+          <div className="ins-sidebar-footer">
+            <div className="ins-sidebar-user">
+              <div className="ins-sidebar-avatar">
+                {(user?.username || 'I')[0].toUpperCase()}
+              </div>
+              <div className="ins-sidebar-user-info">
+                <span className="ins-sidebar-user-name">{user?.username || 'Instructor'}</span>
+                <span className="ins-sidebar-user-role">Instructor</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Main Content ── */}
+      <main className="ins-main">
+        {/* Top Header Bar */}
+        <header className="ins-header">
+          <div className="ins-header-left">
+            <div>
+              <h1 className="ins-header-greeting">{greeting}, {user?.username || 'Instructor'} ✨</h1>
+              <p className="ins-header-subtitle">Manage your courses, create assessments, and track student performance.</p>
+            </div>
+          </div>
+          <div className="ins-header-right">
+            <button
+              className="ins-create-btn"
+              onClick={() => {
+                if (activeTab === 'COURSES') setShowCourseForm(!showCourseForm);
+                else setShowQuizForm(!showQuizForm);
+              }}
+            >
+              <Plus size={18} />
+              {activeTab === 'COURSES'
+                ? (showCourseForm ? 'Cancel' : 'New Course')
+                : (showQuizForm ? 'Cancel' : 'New Quiz')
+              }
             </button>
           </div>
+        </header>
 
-          {/* ════════════ TAB: MY COURSES ════════════ */}
-          {activeTab === 'COURSES' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', animation: 'fadeIn var(--transition-normal)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{courses.length} course{courses.length !== 1 ? 's' : ''} published</span>
-                <button className="btn btn-primary btn-sm" onClick={() => setShowCourseForm(!showCourseForm)}>
-                  <Plus size={14} /> {showCourseForm ? 'Cancel' : 'Create Course'}
-                </button>
-              </div>
+        {/* Stat Overview Cards */}
+        <div className="ins-stats-row">
+          <div className="ins-stat-tile">
+            <div className="ins-stat-tile-icon ins-stat-tile-icon--indigo">
+              <BookOpen size={22} />
+            </div>
+            <div className="ins-stat-tile-body">
+              <span className="ins-stat-tile-value">{courses.length}</span>
+              <span className="ins-stat-tile-label">Total Courses</span>
+            </div>
+            <div className="ins-stat-tile-trend ins-stat-tile-trend--up">
+              <TrendingUp size={14} /> Active
+            </div>
+          </div>
 
-              {/* Create Course Form */}
-              {showCourseForm && (
-                <form onSubmit={handleCreateCourse} className="instructor-form" style={{ background: 'rgba(15,23,42,0.5)', padding: 'var(--space-5)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
-                  <div className="form-group">
+          <div className="ins-stat-tile">
+            <div className="ins-stat-tile-icon ins-stat-tile-icon--cyan">
+              <FileText size={22} />
+            </div>
+            <div className="ins-stat-tile-body">
+              <span className="ins-stat-tile-value">{quizzes.length}</span>
+              <span className="ins-stat-tile-label">Published Quizzes</span>
+            </div>
+            <div className="ins-stat-tile-trend ins-stat-tile-trend--up">
+              <Activity size={14} /> Live
+            </div>
+          </div>
+
+          <div className="ins-stat-tile">
+            <div className="ins-stat-tile-icon ins-stat-tile-icon--emerald">
+              <Users size={22} />
+            </div>
+            <div className="ins-stat-tile-body">
+              <span className="ins-stat-tile-value">—</span>
+              <span className="ins-stat-tile-label">Total Students</span>
+            </div>
+            <div className="ins-stat-tile-trend ins-stat-tile-trend--neutral">
+              <BarChart3 size={14} /> N/A
+            </div>
+          </div>
+
+          <div className="ins-stat-tile">
+            <div className="ins-stat-tile-icon ins-stat-tile-icon--violet">
+              <Award size={22} />
+            </div>
+            <div className="ins-stat-tile-body">
+              <span className="ins-stat-tile-value">Active</span>
+              <span className="ins-stat-tile-label">Account Status</span>
+            </div>
+            <div className="ins-stat-tile-trend ins-stat-tile-trend--up">
+              <CheckCircle2 size={14} /> Verified
+            </div>
+          </div>
+        </div>
+
+        {/* Tab Indicator Bar */}
+        <div className="ins-tab-bar">
+          <button
+            className={`ins-tab ${activeTab === 'COURSES' ? 'ins-tab--active' : ''}`}
+            onClick={() => switchTab('COURSES')}
+          >
+            <BookOpen size={16} /> My Courses
+          </button>
+          <button
+            className={`ins-tab ${activeTab === 'QUIZZES' ? 'ins-tab--active' : ''}`}
+            onClick={() => switchTab('QUIZZES')}
+          >
+            <FileText size={16} /> Quizzes
+          </button>
+        </div>
+
+        {/* ════════════ TAB: MY COURSES ════════════ */}
+        {activeTab === 'COURSES' && (
+          <div className="ins-content-area">
+            {/* Create Course Form */}
+            {showCourseForm && (
+              <form onSubmit={handleCreateCourse} className="ins-form-card">
+                <div className="ins-form-card-header">
+                  <GraduationCap size={20} />
+                  <h3>Publish a New Course</h3>
+                </div>
+                <div className="ins-form-grid">
+                  <div className="form-group ins-form-span-2">
                     <label><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><BookOpen size={12} /> Course Title</span></label>
                     <input type="text" className="form-control" required value={courseForm.title} onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })} placeholder="e.g. Microservices Architecture" />
                   </div>
-                  <div className="form-group">
+                  <div className="form-group ins-form-span-2">
                     <label><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><FileText size={12} /> Description</span></label>
                     <textarea className="form-control" rows={3} required value={courseForm.description} onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })} placeholder="Course description..." style={{ resize: 'vertical' }} />
                   </div>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Tag size={12} /> Category</span></label>
-                      <select className="form-control" value={courseForm.category} onChange={(e) => setCourseForm({ ...courseForm, category: e.target.value })}>
-                        <option value="Computer Science">Computer Science</option>
-                        <option value="Artificial Intelligence">Artificial Intelligence</option>
-                        <option value="Web Development">Web Development</option>
-                        <option value="Data Science">Data Science</option>
-                        <option value="Cybersecurity">Cybersecurity</option>
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><User size={12} /> Instructor Name</span></label>
-                      <input type="text" className="form-control" required value={courseForm.instructor} onChange={(e) => setCourseForm({ ...courseForm, instructor: e.target.value })} />
-                    </div>
-                  </div>
-                  <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-                    {loading ? <><span className="spinner" /> Publishing...</> : <><BookOpen size={15} /> Publish Course</>}
-                  </button>
-                </form>
-              )}
-
-              {/* Course List */}
-              {coursesLoading ? (
-                <div className="instructor-empty-state"><span className="spinner" /><p>Loading courses...</p></div>
-              ) : courses.length === 0 ? (
-                <div className="instructor-empty-state">
-                  <Package size={44} />
-                  <p style={{ fontWeight: 600, color: 'var(--text-muted)' }}>You haven't created any courses yet</p>
-                  <p>Click "Create Course" above to publish your first course.</p>
-                </div>
-              ) : (
-                <div className="instructor-courses-grid">
-                  {courses.map((course) => {
-                    const courseQuizzes = getQuizzesForCourse(course._id || course.id);
-                    return (
-                      <div key={course._id || course.id} className="instructor-course-card">
-                        <div className="instructor-course-card-header">
-                          <span className="instructor-course-card-title">{course.title}</span>
-                        </div>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                          {course.description}
-                        </p>
-                        <div className="instructor-course-card-meta">
-                          <span className="badge badge-primary"><Tag size={10} /> {course.category || 'General'}</span>
-                          <span className="badge badge-secondary"><FileText size={10} /> {courseQuizzes.length} quiz{courseQuizzes.length !== 1 ? 'zes' : ''}</span>
-                        </div>
-                        <button className="instructor-delete-btn" onClick={() => handleDeleteCourse(course._id || course.id, course.title)}>
-                          <Trash2 size={13} /> Remove
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ════════════ TAB: QUIZZES ════════════ */}
-          {activeTab === 'QUIZZES' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', animation: 'fadeIn var(--transition-normal)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{quizzes.length} quiz{quizzes.length !== 1 ? 'zes' : ''} published</span>
-                <button className="btn btn-primary btn-sm" onClick={() => setShowQuizForm(!showQuizForm)}>
-                  <Plus size={14} /> {showQuizForm ? 'Cancel' : 'Create New Quiz'}
-                </button>
-              </div>
-
-              {/* ── Create Quiz Form ── */}
-              {showQuizForm && (
-                <form onSubmit={handleCreateQuiz} className="instructor-form" style={{ background: 'rgba(15,23,42,0.5)', padding: 'var(--space-5)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
                   <div className="form-group">
+                    <label><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Tag size={12} /> Category</span></label>
+                    <select className="form-control" value={courseForm.category} onChange={(e) => setCourseForm({ ...courseForm, category: e.target.value })}>
+                      <option value="Computer Science">Computer Science</option>
+                      <option value="Artificial Intelligence">Artificial Intelligence</option>
+                      <option value="Web Development">Web Development</option>
+                      <option value="Data Science">Data Science</option>
+                      <option value="Cybersecurity">Cybersecurity</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><User size={12} /> Instructor Name</span></label>
+                    <input type="text" className="form-control" required value={courseForm.instructor} onChange={(e) => setCourseForm({ ...courseForm, instructor: e.target.value })} />
+                  </div>
+                </div>
+                <button type="submit" className="ins-form-submit" disabled={loading}>
+                  {loading ? <><span className="spinner" /> Publishing...</> : <><BookOpen size={16} /> Publish Course</>}
+                </button>
+              </form>
+            )}
+
+            {/* Course Grid */}
+            {coursesLoading ? (
+              <div className="ins-empty-state"><span className="spinner" /><p>Loading courses...</p></div>
+            ) : courses.length === 0 ? (
+              <div className="ins-empty-state">
+                <div className="ins-empty-icon">
+                  <Package size={48} />
+                </div>
+                <h3>No courses published yet</h3>
+                <p>Click "New Course" to create and publish your first course.</p>
+              </div>
+            ) : (
+              <div className="ins-grid">
+                {courses.map((course) => {
+                  const courseQuizzes = getQuizzesForCourse(course._id || course.id);
+                  return (
+                    <div key={course._id || course.id} className="ins-card">
+                      <div className="ins-card-accent ins-card-accent--indigo" />
+                      <div className="ins-card-body">
+                        <div className="ins-card-top">
+                          <span className="ins-card-badge"><Tag size={10} /> {course.category || 'General'}</span>
+                        </div>
+                        <h4 className="ins-card-title">{course.title}</h4>
+                        <p className="ins-card-desc">{course.description}</p>
+                        <div className="ins-card-footer">
+                          <div className="ins-card-meta">
+                            <span className="ins-card-meta-item"><FileText size={12} /> {courseQuizzes.length} quiz{courseQuizzes.length !== 1 ? 'zes' : ''}</span>
+                          </div>
+                          <button className="ins-card-delete" onClick={() => handleDeleteCourse(course._id || course.id, course.title)}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ════════════ TAB: QUIZZES ════════════ */}
+        {activeTab === 'QUIZZES' && (
+          <div className="ins-content-area">
+            {/* Create Quiz Form */}
+            {showQuizForm && (
+              <form onSubmit={handleCreateQuiz} className="ins-form-card">
+                <div className="ins-form-card-header">
+                  <Award size={20} />
+                  <h3>Create a New Quiz</h3>
+                </div>
+                <div className="ins-form-grid">
+                  <div className="form-group ins-form-span-2">
                     <label><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Award size={12} /> Quiz Title</span></label>
                     <input type="text" className="form-control" required value={quizTitle} onChange={(e) => setQuizTitle(e.target.value)} placeholder="e.g. Java Fundamentals Assessment" />
                   </div>
-                  <div className="form-group">
+                  <div className="form-group ins-form-span-2">
                     <label><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><FileText size={12} /> Description</span></label>
                     <input type="text" className="form-control" value={quizDescription} onChange={(e) => setQuizDescription(e.target.value)} placeholder="Brief description (optional)" />
                   </div>
+                </div>
 
-                  {/* Dynamic Questions */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        <HelpCircle size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-                        Questions ({quizQuestions.length})
-                      </label>
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={addQuestion}>
-                        <Plus size={13} /> Add Question
-                      </button>
-                    </div>
-
-                    {quizQuestions.map((q, qIdx) => (
-                      <div key={qIdx} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--text-muted)' }}>Question {qIdx + 1}</span>
-                          {quizQuestions.length > 1 && (
-                            <button type="button" onClick={() => removeQuestion(qIdx)} style={{ background: 'none', border: 'none', color: '#fca5a5', cursor: 'pointer', padding: '2px' }} title="Remove question">
-                              <MinusCircle size={16} />
-                            </button>
-                          )}
-                        </div>
-                        <input type="text" className="form-control" required value={q.text} onChange={(e) => updateQuestion(qIdx, 'text', e.target.value)} placeholder="Enter question text" />
-
-                        {/* Options */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          {q.options.map((opt, optIdx) => (
-                            <div key={optIdx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <input
-                                type="radio"
-                                name={`correct_${qIdx}`}
-                                checked={q.correctOptionIndex === optIdx}
-                                onChange={() => updateQuestion(qIdx, 'correctOptionIndex', optIdx)}
-                                title="Mark as correct answer"
-                                style={{ accentColor: '#6366f1', flexShrink: 0 }}
-                              />
-                              <input type="text" className="form-control" required value={opt} onChange={(e) => updateOption(qIdx, optIdx, e.target.value)} placeholder={`Option ${optIdx + 1}`} style={{ fontSize: '0.85rem' }} />
-                              {q.options.length > 2 && (
-                                <button type="button" onClick={() => removeOption(qIdx, optIdx)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '2px', flexShrink: 0 }} title="Remove option">
-                                  <X size={14} />
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                          <button type="button" onClick={() => addOption(qIdx)} style={{ alignSelf: 'flex-start', background: 'none', border: '1px dashed var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px 10px', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: 600 }}>
-                            + Add Option
-                          </button>
-                        </div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
-                          <CheckCircle2 size={11} style={{ color: '#4ade80', verticalAlign: 'middle', marginRight: '3px' }} />
-                          Correct answer: Option {q.correctOptionIndex + 1}
-                        </div>
-                      </div>
-                    ))}
+                {/* Dynamic Questions */}
+                <div className="ins-questions-section">
+                  <div className="ins-questions-header">
+                    <label className="ins-questions-label">
+                      <HelpCircle size={14} /> Questions ({quizQuestions.length})
+                    </label>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={addQuestion}>
+                      <Plus size={13} /> Add Question
+                    </button>
                   </div>
 
-                  <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-                    {loading ? <><span className="spinner" /> Publishing...</> : <><Award size={15} /> Publish Quiz</>}
-                  </button>
-                </form>
-              )}
+                  {quizQuestions.map((q, qIdx) => (
+                    <div key={qIdx} className="ins-question-block">
+                      <div className="ins-question-block-header">
+                        <span className="ins-question-number">Q{qIdx + 1}</span>
+                        {quizQuestions.length > 1 && (
+                          <button type="button" onClick={() => removeQuestion(qIdx)} className="ins-question-remove" title="Remove question">
+                            <MinusCircle size={16} />
+                          </button>
+                        )}
+                      </div>
+                      <input type="text" className="form-control" required value={q.text} onChange={(e) => updateQuestion(qIdx, 'text', e.target.value)} placeholder="Enter question text" />
 
-              {/* Quiz List */}
-              {quizzes.length === 0 ? (
-                <div className="instructor-empty-state">
-                  <FileText size={44} />
-                  <p style={{ fontWeight: 600, color: 'var(--text-muted)' }}>No quizzes yet</p>
-                  <p>Click "Create New Quiz" to build your first assessment.</p>
-                </div>
-              ) : (
-                <div className="instructor-courses-grid">
-                  {quizzes.map((quiz) => (
-                    <div key={quiz.id} className="instructor-course-card">
-                      <div className="instructor-course-card-header">
-                        <span className="instructor-course-card-title">{quiz.title}</span>
+                      <div className="ins-options-list">
+                        {q.options.map((opt, optIdx) => (
+                          <div key={optIdx} className="ins-option-row">
+                            <input
+                              type="radio"
+                              name={`correct_${qIdx}`}
+                              checked={q.correctOptionIndex === optIdx}
+                              onChange={() => updateQuestion(qIdx, 'correctOptionIndex', optIdx)}
+                              title="Mark as correct answer"
+                              className="ins-radio"
+                            />
+                            <input type="text" className="form-control" required value={opt} onChange={(e) => updateOption(qIdx, optIdx, e.target.value)} placeholder={`Option ${optIdx + 1}`} />
+                            {q.options.length > 2 && (
+                              <button type="button" onClick={() => removeOption(qIdx, optIdx)} className="ins-option-remove" title="Remove option">
+                                <X size={14} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <button type="button" onClick={() => addOption(qIdx)} className="ins-add-option-btn">
+                          + Add Option
+                        </button>
                       </div>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                        {quiz.description || 'No description'}
-                      </p>
-                      <div className="instructor-course-card-meta">
-                        <span className="badge badge-info">
-                          <HelpCircle size={10} /> {quiz.questions?.length || 0} question{(quiz.questions?.length || 0) !== 1 ? 's' : ''}
-                        </span>
+                      <div className="ins-correct-indicator">
+                        <CheckCircle2 size={12} /> Correct: Option {q.correctOptionIndex + 1}
                       </div>
-                      <button className="btn btn-secondary btn-sm" onClick={() => handleViewSubmissions(quiz)} style={{ alignSelf: 'flex-start', fontSize: '0.78rem' }}>
-                        <Eye size={13} /> View Submissions
-                      </button>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* ── Submissions Modal ── */}
-      {submissionsModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div style={{ width: '100%', maxWidth: '600px', background: '#0f172a', border: '1px solid rgba(99,102,241,0.3)', borderRadius: '16px', padding: '1.75rem', color: '#f8fafc', maxHeight: '80vh', overflow: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Users size={20} color="#818cf8" />
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Submissions — {submissionsModal.quiz.title}</h3>
-              </div>
-              <button onClick={() => setSubmissionsModal(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
-                <X size={20} />
-              </button>
-            </div>
+                <button type="submit" className="ins-form-submit" disabled={loading}>
+                  {loading ? <><span className="spinner" /> Publishing...</> : <><Award size={16} /> Publish Quiz</>}
+                </button>
+              </form>
+            )}
 
-            {submissionsModal.attempts.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-dim)' }}>
-                <Users size={36} style={{ opacity: 0.4, marginBottom: '8px' }} />
-                <p>No submissions received yet for this quiz.</p>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '8px' }}>
-                  Note: The backend currently only supports viewing attempts per user. A full submissions endpoint is needed for comprehensive analytics.
-                </p>
+            {/* Quiz Grid */}
+            {quizzes.length === 0 ? (
+              <div className="ins-empty-state">
+                <div className="ins-empty-icon">
+                  <FileText size={48} />
+                </div>
+                <h3>No quizzes yet</h3>
+                <p>Click "New Quiz" to build your first assessment.</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {submissionsModal.attempts.map((att, idx) => (
-                  <div key={att.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <User size={14} color="var(--text-muted)" />
-                      <span style={{ fontSize: '0.85rem' }}>{att.userId || 'Student'}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.82rem' }}>
-                      <span style={{ fontWeight: 700, color: att.score >= 70 ? '#4ade80' : att.score >= 40 ? '#fbbf24' : '#f87171' }}>
-                        {att.score}% ({att.correctAnswersCount}/{att.totalQuestions})
-                      </span>
-                      <span style={{ color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Clock size={12} /> {att.submittedAt ? new Date(att.submittedAt).toLocaleDateString() : '—'}
-                      </span>
+              <div className="ins-grid">
+                {quizzes.map((quiz) => (
+                  <div key={quiz.id} className="ins-card">
+                    <div className="ins-card-accent ins-card-accent--cyan" />
+                    <div className="ins-card-body">
+                      <div className="ins-card-top">
+                        <span className="ins-card-badge ins-card-badge--cyan"><HelpCircle size={10} /> {quiz.questions?.length || 0} question{(quiz.questions?.length || 0) !== 1 ? 's' : ''}</span>
+                      </div>
+                      <h4 className="ins-card-title">{quiz.title}</h4>
+                      <p className="ins-card-desc">{quiz.description || 'No description'}</p>
+                      <div className="ins-card-footer">
+                        <button className="ins-view-submissions-btn" onClick={() => handleViewSubmissions(quiz)}>
+                          <Eye size={14} /> Submissions
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
+          </div>
+        )}
+      </main>
+
+      {/* ── Submissions Modal ── */}
+      {submissionsModal && (
+        <div className="ins-modal-overlay" onClick={() => setSubmissionsModal(null)}>
+          <div className="ins-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ins-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="ins-modal-icon"><Users size={20} /></div>
+                <div>
+                  <h3>Submissions</h3>
+                  <p className="ins-modal-subtitle">{submissionsModal.quiz.title}</p>
+                </div>
+              </div>
+              <button onClick={() => setSubmissionsModal(null)} className="ins-modal-close">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="ins-modal-body">
+              {submissionsModal.attempts.length === 0 ? (
+                <div className="ins-empty-state" style={{ padding: '2.5rem 1rem' }}>
+                  <Users size={40} style={{ opacity: 0.3 }} />
+                  <p>No submissions received yet for this quiz.</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '6px' }}>
+                    Note: The backend currently only supports viewing attempts per user.
+                  </p>
+                </div>
+              ) : (
+                <div className="ins-submissions-list">
+                  {submissionsModal.attempts.map((att, idx) => (
+                    <div key={att.id || idx} className="ins-submission-row">
+                      <div className="ins-submission-user">
+                        <User size={14} />
+                        <span>{att.userId || 'Student'}</span>
+                      </div>
+                      <div className="ins-submission-score">
+                        <span className={`ins-score-pill ${att.score >= 70 ? 'ins-score-pill--good' : att.score >= 40 ? 'ins-score-pill--warn' : 'ins-score-pill--bad'}`}>
+                          {att.score}% ({att.correctAnswersCount}/{att.totalQuestions})
+                        </span>
+                        <span className="ins-submission-date">
+                          <Clock size={12} /> {att.submittedAt ? new Date(att.submittedAt).toLocaleDateString() : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

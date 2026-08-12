@@ -65,26 +65,34 @@ export const AuthProvider = ({ children }) => {
           id: data.user.id,
           username: data.user.name || data.user.email,
           email: data.user.email,
+          role: data.user.role || 'STUDENT',
           roles: [data.user.role || 'STUDENT'],
         };
       } else {
         const decoded = parseJwt(accessToken);
+        const decodedRoles = decoded?.realm_access?.roles || [];
+        const decodedRole = decodedRoles.find(r => r?.toUpperCase() === 'INSTRUCTOR' || r?.toUpperCase() === 'ADMIN') || 'STUDENT';
         userInfo = {
           id: decoded?.sub || usernameOrEmail,
           username: decoded?.preferred_username || usernameOrEmail,
           email: decoded?.email || usernameOrEmail,
-          roles: decoded?.realm_access?.roles || [],
+          role: decodedRole,
+          roles: decodedRoles,
         };
       }
     } catch (error) {
       console.warn('Backend API login offline, falling back to local session:', error);
       const cleanName = usernameOrEmail.includes('@') ? usernameOrEmail.split('@')[0] : usernameOrEmail;
+      const lowerInput = usernameOrEmail.toLowerCase();
+      const isInstructorUser = lowerInput.includes('instructor') || lowerInput.includes('admin');
       accessToken = 'local_session_' + Date.now();
+      const fallbackRole = isInstructorUser ? 'INSTRUCTOR' : 'STUDENT';
       userInfo = {
         id: 'user_' + Date.now(),
         username: cleanName || 'student1',
         email: usernameOrEmail.includes('@') ? usernameOrEmail : `${cleanName}@intellilearn.com`,
-        roles: ['STUDENT']
+        role: fallbackRole,
+        roles: [fallbackRole]
       };
     }
 

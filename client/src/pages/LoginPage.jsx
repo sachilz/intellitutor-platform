@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getDefaultDashboard } from '../utils/roleUtils';
+import LogoIcon from '../components/LogoIcon';
 import { 
   LogIn, 
   AlertCircle, 
@@ -71,7 +72,7 @@ const LoginPage = () => {
         <div className="auth-branding-panel">
           <div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(6, 182, 212, 0.15)', border: '1px solid rgba(6, 182, 212, 0.35)', padding: '4px 14px', borderRadius: '20px', fontSize: '0.8rem', color: '#67e8f9', fontWeight: 600, marginBottom: '16px' }}>
-              <Sparkles size={14} color="var(--neon-cyan)" /> Next-Gen AI Learning Platform
+              <LogoIcon size={18} /> Next-Gen AI Learning Platform
             </div>
             <h1 style={{ fontSize: '2.2rem', fontWeight: 800, lineHeight: 1.2, marginBottom: '12px' }}>
               Master AI & Software Engineering
@@ -104,8 +105,8 @@ const LoginPage = () => {
         {/* Right Form Card */}
         <div className="auth-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <div className="auth-header">
-            <div style={{ display: 'inline-flex', padding: '12px', background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', borderRadius: '16px', marginBottom: '12px' }}>
-              <Sparkles size={26} color="var(--primary-light)" />
+            <div style={{ display: 'inline-flex', padding: '2px', background: 'transparent', borderRadius: '16px', marginBottom: '12px' }}>
+              <LogoIcon size={52} />
             </div>
             <h2>Welcome Back</h2>
             <p>Sign in to continue your intelligent learning journey</p>

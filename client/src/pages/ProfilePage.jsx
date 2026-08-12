@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { isInstructor, getDefaultDashboard } from '../utils/roleUtils';
 import Avatar from '../components/Avatar';
 import {
   User,
@@ -36,7 +37,11 @@ import {
   Eye,
   EyeOff,
   Settings,
-  Bell
+  Bell,
+  GraduationCap,
+  FileText,
+  Users,
+  Briefcase,
 } from 'lucide-react';
 
 const PRESET_AVATARS = [
@@ -65,10 +70,20 @@ const AI_TRACKS = [
   'Cybersecurity & Auth',
 ];
 
+const TEACHING_SPECIALTIES = [
+  'Computer Science',
+  'Artificial Intelligence',
+  'Web Development',
+  'Data Science',
+  'Cybersecurity',
+  'Software Engineering',
+];
+
 const ProfilePage = () => {
   const navigate = useNavigate();
   const { user, token } = useAuth();
   const { addToast } = useToast();
+  const isInstructorUser = isInstructor(user);
   const [activeSection, setActiveSection] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -78,20 +93,30 @@ const ProfilePage = () => {
   const [profileData, setProfileData] = useState(() => {
     try {
       const saved = localStorage.getItem('intellilearn_profile_data');
-      return saved ? JSON.parse(saved) : {
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Always keep role in sync with auth state
+        parsed.role = isInstructor(user) ? 'Instructor' : 'Standard Learner';
+        return parsed;
+      }
+      return {
         username: user?.username || 'student1',
         email: user?.email || 'student1@example.com',
-        bio: 'Passionate AI Learner & Prompt Engineering Enthusiast.',
-        track: 'GenAI & Prompting',
-        role: 'Standard Learner'
+        bio: isInstructor(user)
+          ? 'Experienced Educator & Course Creator on IntelliLearn.'
+          : 'Passionate AI Learner & Prompt Engineering Enthusiast.',
+        track: isInstructor(user) ? 'Computer Science' : 'GenAI & Prompting',
+        role: isInstructor(user) ? 'Instructor' : 'Standard Learner'
       };
     } catch {
       return {
         username: user?.username || 'student1',
         email: user?.email || 'student1@example.com',
-        bio: 'Passionate AI Learner & Prompt Engineering Enthusiast.',
-        track: 'GenAI & Prompting',
-        role: 'Standard Learner'
+        bio: isInstructor(user)
+          ? 'Experienced Educator & Course Creator on IntelliLearn.'
+          : 'Passionate AI Learner & Prompt Engineering Enthusiast.',
+        track: isInstructor(user) ? 'Computer Science' : 'GenAI & Prompting',
+        role: isInstructor(user) ? 'Instructor' : 'Standard Learner'
       };
     }
   });
@@ -113,8 +138,8 @@ const ProfilePage = () => {
     });
   };
 
-  // Achievement data
-  const achievements = [
+  // Achievement data — role-aware
+  const studentAchievements = [
     { icon: '🏆', title: 'First Enrollment', desc: 'Registered for your first AI course', unlocked: true, color: '#06b6d4' },
     { icon: '⚡', title: 'AI Explorer', desc: 'Asked your first AI tutor question', unlocked: true, color: '#a855f7' },
     { icon: '🔥', title: 'Streak Master', desc: '7-day consecutive learning streak', unlocked: true, color: '#f59e0b' },
@@ -122,6 +147,17 @@ const ProfilePage = () => {
     { icon: '🌟', title: 'Top Performer', desc: 'Score 100% in a course assessment', unlocked: false, color: '#6b7280' },
     { icon: '💎', title: 'Diamond Scholar', desc: 'Complete 5 courses with mastery', unlocked: false, color: '#6b7280' },
   ];
+
+  const instructorAchievements = [
+    { icon: '🎓', title: 'Course Creator', desc: 'Published your first course', unlocked: true, color: '#6366f1' },
+    { icon: '📝', title: 'Quiz Master', desc: 'Created your first quiz assessment', unlocked: true, color: '#06b6d4' },
+    { icon: '🔥', title: 'Active Educator', desc: 'Maintained an active teaching streak', unlocked: true, color: '#f59e0b' },
+    { icon: '👥', title: 'Student Magnet', desc: 'Attract 50+ enrolled students', unlocked: false, color: '#6b7280' },
+    { icon: '⭐', title: 'Top Rated', desc: 'Receive a 4.5+ average course rating', unlocked: false, color: '#6b7280' },
+    { icon: '💎', title: 'Platform Expert', desc: 'Publish 10+ courses with high completion', unlocked: false, color: '#6b7280' },
+  ];
+
+  const achievements = isInstructorUser ? instructorAchievements : studentAchievements;
 
   // Save profile
   const handleSaveProfile = (e) => {
@@ -207,7 +243,7 @@ const ProfilePage = () => {
   const navItems = [
     { id: 'overview', label: 'Overview', icon: User },
     { id: 'edit', label: 'Edit Profile', icon: Edit3 },
-    { id: 'badges', label: 'Achievements', icon: Award },
+    { id: 'badges', label: isInstructorUser ? 'Milestones' : 'Achievements', icon: Award },
     { id: 'security', label: 'Security', icon: Shield },
   ];
 
@@ -222,7 +258,7 @@ const ProfilePage = () => {
         padding: '12px 0', marginBottom: '8px'
       }}>
         <button
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate(getDefaultDashboard(user))}
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
             background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
@@ -232,14 +268,14 @@ const ProfilePage = () => {
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.15)'; e.currentTarget.style.color = '#c7d2fe'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
         >
-          <ArrowLeft size={16} /> Back to Dashboard
+          <ArrowLeft size={16} /> {isInstructorUser ? 'Back to Instructor Dashboard' : 'Back to Dashboard'}
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#64748b' }}>
           <Activity size={14} color="#06b6d4" />
           <span style={{ color: '#22d3ee' }}>Online</span>
           <span>•</span>
-          <span>Member Profile</span>
+          <span>{isInstructorUser ? 'Instructor Profile' : 'Member Profile'}</span>
         </div>
       </div>
 
@@ -369,12 +405,18 @@ const ProfilePage = () => {
                   {profileData.username}
                 </h1>
                 <span style={{
-                  background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2))',
-                  border: '1px solid rgba(99,102,241,0.3)', borderRadius: '8px',
+                  background: isInstructorUser
+                    ? 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(6,182,212,0.2))'
+                    : 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2))',
+                  border: isInstructorUser
+                    ? '1px solid rgba(16,185,129,0.4)'
+                    : '1px solid rgba(99,102,241,0.3)',
+                  borderRadius: '8px',
                   padding: '4px 12px', fontSize: '0.75rem', fontWeight: 700,
-                  color: '#a5b4fc', letterSpacing: '0.02em',
+                  color: isInstructorUser ? '#6ee7b7' : '#a5b4fc',
+                  letterSpacing: '0.02em',
                 }}>
-                  {profileData.role}
+                  {isInstructorUser ? '✦ Instructor' : profileData.role}
                 </span>
               </div>
 
@@ -383,7 +425,9 @@ const ProfilePage = () => {
                   <Mail size={14} color="#64748b" /> {profileData.email}
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: '#22d3ee' }}>
-                  <Sparkles size={14} color="#06b6d4" /> {profileData.track}
+                  {isInstructorUser
+                    ? <><Briefcase size={14} color="#06b6d4" /> {profileData.track}</>
+                    : <><Sparkles size={14} color="#06b6d4" /> {profileData.track}</>}
                 </span>
               </div>
 
@@ -420,12 +464,17 @@ const ProfilePage = () => {
           display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
           gap: '12px', padding: '24px 32px 0',
         }}>
-          {[
+          {(isInstructorUser ? [
+            { label: 'Milestones', value: `${unlockedCount}/${achievements.length}`, icon: Award, color: '#a855f7', bg: 'rgba(168,85,247,0.1)', border: 'rgba(168,85,247,0.25)' },
+            { label: 'Teaching Role', value: 'Instructor', icon: GraduationCap, color: '#6366f1', bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.25)' },
+            { label: 'Auth Provider', value: 'Keycloak SSO', icon: ShieldCheck, color: '#22d3ee', bg: 'rgba(6,182,212,0.1)', border: 'rgba(6,182,212,0.25)' },
+            { label: 'Session Status', value: 'Active', icon: Activity, color: '#22c55e', bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.25)' },
+          ] : [
             { label: 'Achievements', value: `${unlockedCount}/${achievements.length}`, icon: Award, color: '#a855f7', bg: 'rgba(168,85,247,0.1)', border: 'rgba(168,85,247,0.25)' },
             { label: 'Learning Streak', value: '7 Days', icon: Flame, color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.25)' },
             { label: 'Auth Provider', value: 'Keycloak SSO', icon: ShieldCheck, color: '#22d3ee', bg: 'rgba(6,182,212,0.1)', border: 'rgba(6,182,212,0.25)' },
             { label: 'Session Status', value: 'Active', icon: Activity, color: '#22c55e', bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.25)' },
-          ].map((stat, i) => (
+          ]).map((stat, i) => (
             <div key={i} style={{
               display: 'flex', alignItems: 'center', gap: '14px',
               background: stat.bg, border: `1px solid ${stat.border}`,
@@ -495,9 +544,9 @@ const ProfilePage = () => {
                   { icon: Hash, label: 'User ID', value: user?.id || '6a78a860f4df8c05bf35f77f', mono: true, copyable: true },
                   { icon: User, label: 'Display Name', value: profileData.username },
                   { icon: Mail, label: 'Email Address', value: profileData.email },
-                  { icon: Target, label: 'Learning Bio', value: profileData.bio, muted: true },
-                  { icon: Sparkles, label: 'AI Track', value: profileData.track, badge: true },
-                  { icon: Globe, label: 'Role', value: profileData.role },
+                  { icon: isInstructorUser ? Briefcase : Target, label: isInstructorUser ? 'Professional Bio' : 'Learning Bio', value: profileData.bio, muted: true },
+                  { icon: isInstructorUser ? GraduationCap : Sparkles, label: isInstructorUser ? 'Teaching Specialty' : 'AI Track', value: profileData.track, badge: true },
+                  { icon: Globe, label: 'Role', value: isInstructorUser ? 'Instructor' : profileData.role },
                 ].map((row, i) => (
                   <div key={i} style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -608,7 +657,7 @@ const ProfilePage = () => {
               {/* Bio */}
               <div style={{ marginTop: '16px' }}>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#94a3b8', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Learning Bio
+                  {isInstructorUser ? 'Professional Bio' : 'Learning Bio'}
                 </label>
                 <textarea
                   rows={3}
@@ -628,10 +677,10 @@ const ProfilePage = () => {
               {/* Track */}
               <div style={{ marginTop: '16px' }}>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#94a3b8', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  AI Specialization Track
+                  {isInstructorUser ? 'Teaching Specialty' : 'AI Specialization Track'}
                 </label>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {AI_TRACKS.map(track => {
+                  {(isInstructorUser ? TEACHING_SPECIALTIES : AI_TRACKS).map(track => {
                     const isSelected = editForm.track === track;
                     return (
                       <button
@@ -695,7 +744,7 @@ const ProfilePage = () => {
             <div style={{ animation: 'profileFadeIn 0.35s ease' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e2e8f0', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Award size={18} color="#a5b4fc" /> Learning Achievements
+                  <Award size={18} color="#a5b4fc" /> {isInstructorUser ? 'Teaching Milestones' : 'Learning Achievements'}
                 </h3>
                 <span style={{
                   background: 'linear-gradient(135deg, rgba(168,85,247,0.15), rgba(99,102,241,0.15))',
