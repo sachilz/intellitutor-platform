@@ -4,14 +4,13 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getCourses, enrollInCourse } from '../api/courseApi';
 import { getUserProgress, updateProgress, createProgress } from '../api/progressApi';
-import { askTutor, getAiConfig, saveAiConfig } from '../api/tutorApi';
+import { askTutor } from '../api/tutorApi';
 import { getQuizzes, submitQuiz, getQuizAttempts } from '../api/quizApi';
 import { CourseGridSkeleton } from '../components/SkeletonLoader';
 import { CURATED_COURSES, getCategoryBadgeClass } from '../data/coursesCatalog';
 import { getStoredProgressMap, saveStoredProgressMap, setStoredCourseProgress, removeStoredCourseProgress } from '../utils/progressStorage';
 import TimeAnalyticsModal from '../components/TimeAnalyticsModal';
-import AiCommandTerminal from '../components/AiCommandTerminal';
-import AiChatbotComponent from '../components/AiChatbotComponent';
+
 import { 
   BookOpen, 
   GraduationCap, 
@@ -57,7 +56,7 @@ import {
   ShieldCheck,
   RotateCcw,
   Settings,
-  Key,
+
   Copy,
   Cpu,
   Layers,
@@ -192,13 +191,7 @@ const DashboardPage = () => {
     return `${hrs > 0 ? `${hrs.toString().padStart(2, '0')}:` : ''}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // AI Config & Modal State
-  const [aiConfig, setAiConfigState] = useState(() => getAiConfig());
-  const [showAiConfigModal, setShowAiConfigModal] = useState(false);
-  const [tempApiKey, setTempApiKey] = useState(aiConfig.apiKey || '');
-  const [tempProvider, setTempProvider] = useState(aiConfig.provider || 'openai');
-  const [tempModel, setTempModel] = useState(aiConfig.model || 'gpt-4o-mini');
-  const [showKeyPassword, setShowKeyPassword] = useState(false);
+  // Copy message state
   const [copiedMsgIndex, setCopiedMsgIndex] = useState(null);
 
   // Multi-turn Interactive AI Chat Terminal State
@@ -483,16 +476,192 @@ const DashboardPage = () => {
     addToast('⏱️ Logged +30 mins of AI learning! +25 XP added.', 'success', 'Study Time Logged');
   };
 
-  const handleSaveAiConfig = () => {
-    const newConfig = { apiKey: tempApiKey.trim(), provider: tempProvider, model: tempModel };
-    saveAiConfig(newConfig);
-    setAiConfigState(newConfig);
-    setShowAiConfigModal(false);
-    addToast(
-      newConfig.apiKey ? `⚡ AI Key configured! Live provider: ${tempProvider.toUpperCase()} (${tempModel})` : 'ℹ️ Config saved (Offline Grounded RAG mode)',
-      'success',
-      'AI Settings Updated'
-    );
+
+
+  // Render markdown text to styled JSX
+  const renderMarkdown = (text) => {
+    if (!text) return null;
+    const lines = text.split('\n');
+    const elements = [];
+    let codeBlock = null;
+    let listItems = [];
+    let listType = null; // 'ul' or 'ol'
+
+    const flushList = () => {
+      if (listItems.length > 0) {
+        const Tag = listType === 'ol' ? 'ol' : 'ul';
+        elements.push(
+          <Tag key={`list-${elements.length}`} style={{
+            margin: '8px 0', paddingLeft: '20px', color: '#cbd5e1',
+            listStyleType: listType === 'ol' ? 'decimal' : 'disc'
+          }}>
+            {listItems.map((li, j) => (
+              <li key={j} style={{ margin: '4px 0', lineHeight: 1.6, fontSize: '0.86rem' }}>
+                {renderInline(li)}
+              </li>
+            ))}
+          </Tag>
+        );
+        listItems = [];
+        listType = null;
+      }
+    };
+
+    const renderInline = (str) => {
+      if (!str) return str;
+      // Process inline markdown: bold, italic, inline code
+      const parts = [];
+      let remaining = str;
+      let key = 0;
+      // Process backtick code first, then bold, then italic
+      const regex = /(`[^`]+`)|\*\*\*([^*]+)\*\*\*|\*\*([^*]+)\*\*|\*([^*]+)\*/g;
+      let lastIndex = 0;
+      let match;
+      while ((match = regex.exec(remaining)) !== null) {
+        if (match.index > lastIndex) {
+          parts.push(<span key={key++}>{remaining.slice(lastIndex, match.index)}</span>);
+        }
+        if (match[1]) {
+          // Inline code
+          parts.push(
+            <code key={key++} style={{
+              background: 'rgba(99,102,241,0.15)', color: '#a5b4fc',
+              padding: '1px 6px', borderRadius: '4px', fontSize: '0.82em',
+              fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+              border: '1px solid rgba(99,102,241,0.2)'
+            }}>{match[1].slice(1, -1)}</code>
+          );
+        } else if (match[2]) {
+          // Bold italic
+          parts.push(<strong key={key++} style={{ fontWeight: 700, fontStyle: 'italic', color: '#f1f5f9' }}>{match[2]}</strong>);
+        } else if (match[3]) {
+          // Bold
+          parts.push(<strong key={key++} style={{ fontWeight: 700, color: '#f1f5f9' }}>{match[3]}</strong>);
+        } else if (match[4]) {
+          // Italic
+          parts.push(<em key={key++} style={{ fontStyle: 'italic', color: '#e2e8f0' }}>{match[4]}</em>);
+        }
+        lastIndex = match.index + match[0].length;
+      }
+      if (lastIndex < remaining.length) {
+        parts.push(<span key={key++}>{remaining.slice(lastIndex)}</span>);
+      }
+      return parts.length > 0 ? parts : str;
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Code block start/end
+      if (line.trim().startsWith('```')) {
+        flushList();
+        if (codeBlock === null) {
+          const lang = line.trim().slice(3).trim();
+          codeBlock = { lang, lines: [] };
+          continue;
+        } else {
+          elements.push(
+            <div key={`code-${i}`} style={{
+              margin: '10px 0', borderRadius: '10px', overflow: 'hidden',
+              border: '1px solid rgba(99,102,241,0.2)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+            }}>
+              {codeBlock.lang && (
+                <div style={{
+                  padding: '6px 14px', background: 'rgba(99,102,241,0.12)',
+                  borderBottom: '1px solid rgba(99,102,241,0.15)',
+                  fontSize: '0.7rem', color: '#818cf8', fontWeight: 700,
+                  textTransform: 'uppercase', letterSpacing: '0.05em'
+                }}>{codeBlock.lang}</div>
+              )}
+              <pre style={{
+                margin: 0, padding: '14px 16px', background: '#020617',
+                overflowX: 'auto', fontSize: '0.82rem', lineHeight: 1.65,
+                fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+                color: '#e2e8f0'
+              }}><code>{codeBlock.lines.join('\n')}</code></pre>
+            </div>
+          );
+          codeBlock = null;
+          continue;
+        }
+      }
+      if (codeBlock !== null) {
+        codeBlock.lines.push(line);
+        continue;
+      }
+
+      // Horizontal rule
+      if (/^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())) {
+        flushList();
+        elements.push(<hr key={`hr-${i}`} style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.08)', margin: '12px 0' }} />);
+        continue;
+      }
+
+      // Headings
+      const headingMatch = line.match(/^(#{1,4})\s+(.+)/);
+      if (headingMatch) {
+        flushList();
+        const level = headingMatch[1].length;
+        const headingStyles = {
+          1: { fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', margin: '16px 0 8px 0', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '6px' },
+          2: { fontSize: '1.02rem', fontWeight: 700, color: '#f1f5f9', margin: '14px 0 6px 0' },
+          3: { fontSize: '0.92rem', fontWeight: 700, color: '#e2e8f0', margin: '12px 0 5px 0' },
+          4: { fontSize: '0.86rem', fontWeight: 600, color: '#cbd5e1', margin: '10px 0 4px 0' },
+        };
+        elements.push(
+          <div key={`h-${i}`} style={headingStyles[level] || headingStyles[4]}>
+            {renderInline(headingMatch[2])}
+          </div>
+        );
+        continue;
+      }
+
+      // Numbered list items (1. 2. etc.)
+      const olMatch = line.match(/^\s*(\d+)\.\s+(.+)/);
+      if (olMatch) {
+        if (listType !== 'ol') flushList();
+        listType = 'ol';
+        listItems.push(olMatch[2]);
+        continue;
+      }
+
+      // Bullet list items
+      const ulMatch = line.match(/^\s*[-•*]\s+(.+)/);
+      if (ulMatch) {
+        if (listType !== 'ul') flushList();
+        listType = 'ul';
+        listItems.push(ulMatch[1]);
+        continue;
+      }
+
+      // Regular line / empty line
+      flushList();
+      if (line.trim() === '') {
+        elements.push(<div key={`empty-${i}`} style={{ height: '6px' }} />);
+      } else {
+        elements.push(
+          <div key={`p-${i}`} style={{ margin: '2px 0', lineHeight: 1.65 }}>
+            {renderInline(line)}
+          </div>
+        );
+      }
+    }
+
+    // Flush remaining
+    flushList();
+    if (codeBlock !== null) {
+      elements.push(
+        <pre key="code-end" style={{
+          margin: '10px 0', padding: '14px 16px', background: '#020617',
+          borderRadius: '10px', overflowX: 'auto', fontSize: '0.82rem',
+          lineHeight: 1.65, fontFamily: "'JetBrains Mono', monospace",
+          color: '#e2e8f0', border: '1px solid rgba(99,102,241,0.2)'
+        }}><code>{codeBlock.lines.join('\n')}</code></pre>
+      );
+    }
+
+    return elements;
   };
 
   const handleClearTerminalChat = () => {
@@ -532,7 +701,7 @@ const DashboardPage = () => {
 
     try {
       const userId = user?.email || user?.username || 'student1@intellilearn.com';
-      const res = await askTutor('general', q, userId, aiConfig.apiKey, aiConfig.provider, aiConfig.model);
+      const res = await askTutor('general', q, userId);
 
       setTerminalChat((prev) => [
         ...prev,
@@ -550,9 +719,9 @@ const DashboardPage = () => {
         ...prev,
         {
           sender: 'ai',
-          text: `🤖 **AI Tutor Response**: "${q}" is an important topic! (System notice: ${err.message || 'Offline mode'}). Click ⚙️ Settings above to add your OpenAI, Gemini, or Groq API Key for live AI responses!`,
+          text: `🤖 I encountered an issue processing your request about "${q}". (${err.message || 'Service temporarily unavailable'}). Please try again shortly.`,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          sources: ['Offline Grounded Engine']
+          sources: ['System']
         }
       ]);
     } finally {
@@ -570,14 +739,14 @@ const DashboardPage = () => {
 
     try {
       const userId = user?.email || user?.username || 'student1@intellilearn.com';
-      const res = await askTutor('general', currentQ, userId, aiConfig.apiKey, aiConfig.provider, aiConfig.model);
+      const res = await askTutor('general', currentQ, userId);
       let reply = res.answer;
       if (res.sources && res.sources.length > 0) {
         reply += ` (Sources: ${res.sources.join(', ')})`;
       }
       setFabMessages((prev) => [...prev, { sender: 'ai', text: reply }]);
     } catch (err) {
-      setFabMessages((prev) => [...prev, { sender: 'ai', text: `I analyzed your request about "${currentQ}". Check out our courses or configure your API Key in the AI Command Terminal settings!` }]);
+      setFabMessages((prev) => [...prev, { sender: 'ai', text: `I encountered an issue processing your request. Please try again shortly.` }]);
     }
   };
 
@@ -1142,10 +1311,10 @@ const DashboardPage = () => {
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', animation: 'dashPulse 2s ease-in-out infinite' }} />
               <span style={{ fontSize: '0.78rem', color: '#e2e8f0', fontWeight: 700 }}>AI Tutor Live</span>
               <span style={{
-                fontSize: '0.68rem', color: aiConfig.apiKey ? '#a5b4fc' : '#94a3b8',
+                fontSize: '0.68rem', color: '#a5b4fc',
                 background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '6px', fontWeight: 600
               }}>
-                {aiConfig.apiKey ? `${aiConfig.provider.toUpperCase()} (${aiConfig.model})` : 'Offline RAG Mode'}
+                Powered by AI
               </span>
             </div>
           </div>
@@ -1194,13 +1363,12 @@ const DashboardPage = () => {
                     <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.01em' }}>AI Command Terminal</span>
                     <span style={{
                       fontSize: '0.68rem', padding: '2px 8px', borderRadius: '20px',
-                      background: aiConfig.apiKey ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)',
-                      color: aiConfig.apiKey ? '#4ade80' : '#fbbf24',
-                      border: `1px solid ${aiConfig.apiKey ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                      background: 'rgba(34,197,94,0.15)', color: '#4ade80',
+                      border: '1px solid rgba(34,197,94,0.3)',
                       fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px'
                     }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: aiConfig.apiKey ? '#22c55e' : '#f59e0b' }} />
-                      {aiConfig.apiKey ? `Live ${aiConfig.provider.toUpperCase()}` : 'Offline RAG Engine'}
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e' }} />
+                      Live AI Assistant
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
@@ -1213,23 +1381,6 @@ const DashboardPage = () => {
 
               {/* Terminal Action Buttons */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  onClick={() => setShowAiConfigModal(true)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    padding: '7px 14px', borderRadius: '10px',
-                    background: aiConfig.apiKey ? 'rgba(99,102,241,0.15)' : 'rgba(245,158,11,0.15)',
-                    border: `1px solid ${aiConfig.apiKey ? 'rgba(99,102,241,0.3)' : 'rgba(245,158,11,0.3)'}`,
-                    color: aiConfig.apiKey ? '#a5b4fc' : '#fbbf24',
-                    fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
-                >
-                  <Settings size={13} /> {aiConfig.apiKey ? 'API Configured' : '⚙️ Connect API Key'}
-                </button>
-
                 {terminalChat.length > 1 && (
                   <button
                     onClick={handleClearTerminalChat}
@@ -1285,8 +1436,8 @@ const DashboardPage = () => {
                     padding: '12px 16px', color: '#f1f5f9', fontSize: '0.86rem', lineHeight: 1.6,
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)', position: 'relative'
                   }}>
-                    <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                      {msg.text}
+                    <div style={{ wordBreak: 'break-word' }}>
+                      {msg.sender === 'ai' ? renderMarkdown(msg.text) : msg.text}
                     </div>
 
                     {/* Sources / Metadata tags */}
@@ -1425,10 +1576,6 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* ── INTELLITUTOR AI CHATBOT ── */}
-          <div style={{ marginTop: '1.25rem' }}>
-            <AiChatbotComponent userId={user?.email || 'student1@intellilearn.com'} />
-          </div>
         </div>
       </div>
 
@@ -2566,186 +2713,6 @@ const DashboardPage = () => {
       />
 
       {/* 14. AI TUTOR API KEY CONFIGURATION MODAL */}
-      {showAiConfigModal && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
-          background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
-        }}>
-          <div style={{
-            background: 'linear-gradient(145deg, #0f172a, #1e293b)',
-            border: '1px solid rgba(99,102,241,0.3)', borderRadius: '24px',
-            padding: '28px', maxWidth: '540px', width: '100%',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', position: 'relative',
-            animation: 'dashFadeSlideIn 0.3s ease'
-          }}>
-            {/* Modal Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                  width: '40px', height: '40px', borderRadius: '12px',
-                  background: 'linear-gradient(135deg, #6366f1, #a855f7)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 4px 15px rgba(99,102,241,0.4)'
-                }}>
-                  <Key size={20} color="#fff" />
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#f8fafc' }}>Configure AI Tutor Key</h3>
-                  <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Connect OpenAI, Gemini, or Groq for real AI responses</span>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowAiConfigModal(false)}
-                style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '8px', padding: '6px', color: '#94a3b8', cursor: 'pointer' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Provider Selection */}
-            <div style={{ marginBottom: '18px' }}>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '8px' }}>
-                AI Model Provider
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-                {[
-                  { id: 'openai', name: 'OpenAI', defaultModel: 'gpt-4o-mini', desc: 'GPT-4o / GPT-3.5' },
-                  { id: 'gemini', name: 'Google Gemini', defaultModel: 'gemini-1.5-flash', desc: 'Gemini 1.5 / 2.0' },
-                  { id: 'groq', name: 'Groq', defaultModel: 'llama-3.3-70b-versatile', desc: 'Ultra-fast Llama 3' },
-                ].map((prov) => (
-                  <button
-                    key={prov.id}
-                    type="button"
-                    onClick={() => {
-                      setTempProvider(prov.id);
-                      setTempModel(prov.defaultModel);
-                    }}
-                    style={{
-                      padding: '12px 10px', borderRadius: '12px',
-                      background: tempProvider === prov.id ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)',
-                      border: tempProvider === prov.id ? '2px solid #6366f1' : '1px solid rgba(255,255,255,0.08)',
-                      color: tempProvider === prov.id ? '#fff' : '#94a3b8',
-                      cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s ease'
-                    }}
-                  >
-                    <div style={{ fontSize: '0.88rem', fontWeight: 800 }}>{prov.name}</div>
-                    <div style={{ fontSize: '0.7rem', color: tempProvider === prov.id ? '#a5b4fc' : '#64748b', marginTop: '2px' }}>{prov.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Model Input/Select */}
-            <div style={{ marginBottom: '18px' }}>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '8px' }}>
-                Select AI Model
-              </label>
-              <select
-                value={tempModel}
-                onChange={(e) => setTempModel(e.target.value)}
-                style={{
-                  width: '100%', padding: '12px', borderRadius: '12px',
-                  background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)',
-                  color: '#f8fafc', fontSize: '0.88rem', outline: 'none'
-                }}
-              >
-                {tempProvider === 'openai' && (
-                  <>
-                    <option value="gpt-4o-mini" style={{ background: '#1e293b' }}>GPT-4o Mini (Fast & Smart)</option>
-                    <option value="gpt-4o" style={{ background: '#1e293b' }}>GPT-4o (Most Powerful)</option>
-                    <option value="gpt-3.5-turbo" style={{ background: '#1e293b' }}>GPT-3.5 Turbo</option>
-                  </>
-                )}
-                {tempProvider === 'gemini' && (
-                  <>
-                    <option value="gemini-1.5-flash" style={{ background: '#1e293b' }}>Gemini 1.5 Flash (Recommended)</option>
-                    <option value="gemini-1.5-pro" style={{ background: '#1e293b' }}>Gemini 1.5 Pro</option>
-                    <option value="gemini-2.0-flash" style={{ background: '#1e293b' }}>Gemini 2.0 Flash</option>
-                  </>
-                )}
-                {tempProvider === 'groq' && (
-                  <>
-                    <option value="llama-3.3-70b-versatile" style={{ background: '#1e293b' }}>Llama 3.3 70B (Versatile)</option>
-                    <option value="mixtral-8x7b-32768" style={{ background: '#1e293b' }}>Mixtral 8x7B</option>
-                  </>
-                )}
-              </select>
-            </div>
-
-            {/* API Key Input */}
-            <div style={{ marginBottom: '22px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#cbd5e1' }}>
-                  {tempProvider.toUpperCase()} API Key
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowKeyPassword(!showKeyPassword)}
-                  style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
-                >
-                  {showKeyPassword ? 'Hide Key' : 'Show Key'}
-                </button>
-              </div>
-              <input
-                type={showKeyPassword ? 'text' : 'password'}
-                placeholder={
-                  tempProvider === 'openai' ? 'sk-proj-xxxxxxxx...' :
-                    tempProvider === 'gemini' ? 'AIzaSyxxxxxxx...' : 'gsk_xxxxxxx...'
-                }
-                value={tempApiKey}
-                onChange={(e) => setTempApiKey(e.target.value)}
-                style={{
-                  width: '100%', padding: '12px 14px', borderRadius: '12px',
-                  background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(99,102,241,0.3)',
-                  color: '#f8fafc', fontSize: '0.88rem', fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box'
-                }}
-              />
-              <span style={{ display: 'block', fontSize: '0.72rem', color: '#64748b', marginTop: '6px' }}>
-                🔒 Your API Key is saved locally in your browser session and sent securely to your tutor service.
-              </span>
-            </div>
-
-            {/* Save / Clear Action Buttons */}
-            <div style={{ display: 'flex', gap: '12px' }}>
-              {aiConfig.apiKey && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTempApiKey('');
-                    const resetConfig = { apiKey: '', provider: 'openai', model: 'gpt-4o-mini' };
-                    saveAiConfig(resetConfig);
-                    setAiConfigState(resetConfig);
-                    setShowAiConfigModal(false);
-                    addToast('API key cleared. Switched back to offline RAG mode.', 'info', 'Key Cleared');
-                  }}
-                  style={{
-                    padding: '12px 18px', borderRadius: '12px',
-                    background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)',
-                    color: '#ef4444', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer'
-                  }}
-                >
-                  Remove Key
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={handleSaveAiConfig}
-                style={{
-                  flex: 1, padding: '12px 20px', borderRadius: '12px',
-                  background: 'linear-gradient(135deg, #6366f1, #a855f7)',
-                  border: 'none', color: '#fff', fontSize: '0.88rem', fontWeight: 700,
-                  cursor: 'pointer', boxShadow: '0 4px 15px rgba(99,102,241,0.4)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
-                }}
-              >
-                <Check size={16} /> Save & Activate AI Chatbot
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };

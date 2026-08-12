@@ -24,6 +24,9 @@ public class LlmService {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
+    @Value("${llm.default-provider:openrouter}")
+    private String defaultProvider;
+
     @Value("${llm.openai.api-key:}")
     private String envOpenAiApiKey;
 
@@ -32,6 +35,9 @@ public class LlmService {
 
     @Value("${llm.groq.api-key:}")
     private String envGroqApiKey;
+
+    @Value("${llm.openrouter.api-key:}")
+    private String envOpenRouterApiKey;
 
     private static final String SYSTEM_PROMPT = 
         "You are IntelliTutor AI, a world-class AI learning assistant for the IntelliLearn Platform. " +
@@ -46,49 +52,73 @@ public class LlmService {
         this.objectMapper = new ObjectMapper();
     }
 
+    /**
+     * Check if any LLM provider is configured (either via user key or server env).
+     * When no userApiKey is provided, checks all server-side env keys.
+     */
     public boolean isConfigured(String userApiKey, String provider) {
         if (userApiKey != null && !userApiKey.trim().isEmpty()) {
             return true;
         }
-        if ("gemini".equalsIgnoreCase(provider) && envGeminiApiKey != null && !envGeminiApiKey.trim().isEmpty()) {
+        // Check server-side env keys based on provider or any available
+        String resolvedProvider = (provider != null && !provider.trim().isEmpty()) ? provider.toLowerCase() : defaultProvider;
+
+        String envKey = getEnvKeyForProvider(resolvedProvider);
+        if (envKey != null && !envKey.trim().isEmpty()) {
             return true;
         }
-        if ("groq".equalsIgnoreCase(provider) && envGroqApiKey != null && !envGroqApiKey.trim().isEmpty()) {
-            return true;
-        }
-        if (envOpenAiApiKey != null && !envOpenAiApiKey.trim().isEmpty()) {
-            return true;
-        }
-        if (envGeminiApiKey != null && !envGeminiApiKey.trim().isEmpty()) {
-            return true;
-        }
-        return envGroqApiKey != null && !envGroqApiKey.trim().isEmpty();
+
+        // Fallback: check all env keys
+        if (isNotEmpty(envOpenRouterApiKey)) return true;
+        if (isNotEmpty(envOpenAiApiKey)) return true;
+        if (isNotEmpty(envGeminiApiKey)) return true;
+        if (isNotEmpty(envGroqApiKey)) return true;
+
+        return false;
     }
 
     public String generateResponse(String question, String courseId, String userApiKey, String requestedProvider, String requestedModel) throws Exception {
-        String provider = (requestedProvider != null && !requestedProvider.trim().isEmpty()) ? requestedProvider.toLowerCase() : "openai";
-        String apiKey = userApiKey != null && !userApiKey.trim().isEmpty() ? userApiKey.trim() : getEnvKeyForProvider(provider);
+        // Resolve provider: user request → default env → "openrouter"
+        String provider = (requestedProvider != null && !requestedProvider.trim().isEmpty()) 
+            ? requestedProvider.toLowerCase() 
+            : (defaultProvider != null && !defaultProvider.trim().isEmpty() ? defaultProvider.toLowerCase() : "openrouter");
 
+        // Resolve API key: user-provided → env for provider → any available env key
+        String apiKey = (userApiKey != null && !userApiKey.trim().isEmpty()) ? userApiKey.trim() : getEnvKeyForProvider(provider);
+
+        // If still no key, try to find any available key and adjust provider accordingly
         if (apiKey == null || apiKey.trim().isEmpty()) {
-            // Auto-detect provider if user supplied key
-            if (userApiKey != null && userApiKey.startsWith("AIza")) {
+            if (isNotEmpty(envOpenRouterApiKey)) {
+                provider = "openrouter";
+                apiKey = envOpenRouterApiKey.trim();
+            } else if (isNotEmpty(envOpenAiApiKey)) {
+                provider = "openai";
+                apiKey = envOpenAiApiKey.trim();
+            } else if (isNotEmpty(envGeminiApiKey)) {
                 provider = "gemini";
-                apiKey = userApiKey.trim();
-            } else if (userApiKey != null && userApiKey.startsWith("gsk_")) {
+                apiKey = envGeminiApiKey.trim();
+            } else if (isNotEmpty(envGroqApiKey)) {
                 provider = "groq";
-                apiKey = userApiKey.trim();
-            } else {
-                apiKey = userApiKey != null ? userApiKey.trim() : "";
+                apiKey = envGroqApiKey.trim();
             }
         }
 
-        if (apiKey.isEmpty()) {
+        // Auto-detect provider from key prefix
+        if (apiKey != null && !apiKey.isEmpty()) {
+            if (apiKey.startsWith("AIza")) provider = "gemini";
+            else if (apiKey.startsWith("gsk_")) provider = "groq";
+            else if (apiKey.startsWith("sk-or-")) provider = "openrouter";
+        }
+
+        if (apiKey == null || apiKey.isEmpty()) {
             throw new IllegalArgumentException("No valid LLM API key provided.");
         }
 
-        if ("gemini".equalsIgnoreCase(provider) || apiKey.startsWith("AIza")) {
+        log.info("Using LLM provider: {} for question (courseId: {})", provider, courseId);
+
+        if ("gemini".equalsIgnoreCase(provider)) {
             return callGeminiApi(question, courseId, apiKey, requestedModel);
-        } else if ("groq".equalsIgnoreCase(provider) || apiKey.startsWith("gsk_")) {
+        } else if ("groq".equalsIgnoreCase(provider)) {
             return callOpenAiCompatibleApi("https://api.groq.com/openai/v1/chat/completions", apiKey, 
                     (requestedModel != null && !requestedModel.trim().isEmpty()) ? requestedModel : "llama-3.3-70b-versatile", question, courseId);
         } else if ("openrouter".equalsIgnoreCase(provider)) {
@@ -102,11 +132,19 @@ public class LlmService {
     }
 
     private String getEnvKeyForProvider(String provider) {
+        if ("openrouter".equalsIgnoreCase(provider)) return envOpenRouterApiKey;
         if ("gemini".equalsIgnoreCase(provider)) return envGeminiApiKey;
         if ("groq".equalsIgnoreCase(provider)) return envGroqApiKey;
-        if (envOpenAiApiKey != null && !envOpenAiApiKey.isEmpty()) return envOpenAiApiKey;
-        if (envGeminiApiKey != null && !envGeminiApiKey.isEmpty()) return envGeminiApiKey;
+        if ("openai".equalsIgnoreCase(provider)) return envOpenAiApiKey;
+        // Fallback chain
+        if (isNotEmpty(envOpenRouterApiKey)) return envOpenRouterApiKey;
+        if (isNotEmpty(envOpenAiApiKey)) return envOpenAiApiKey;
+        if (isNotEmpty(envGeminiApiKey)) return envGeminiApiKey;
         return envGroqApiKey;
+    }
+
+    private boolean isNotEmpty(String val) {
+        return val != null && !val.trim().isEmpty();
     }
 
     private String callOpenAiCompatibleApi(String endpoint, String apiKey, String model, String question, String courseId) throws Exception {
@@ -127,7 +165,7 @@ public class LlmService {
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
-                .timeout(Duration.ofSeconds(25))
+                .timeout(Duration.ofSeconds(30))
                 .build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -138,7 +176,7 @@ public class LlmService {
             if (!contentNode.isMissingNode()) {
                 return contentNode.asText();
             }
-            throw new RuntimeException("Unexpected OpenAI API response structure");
+            throw new RuntimeException("Unexpected API response structure");
         } else {
             log.error("LLM API returned error status {}: {}", response.statusCode(), response.body());
             JsonNode errJson = objectMapper.readTree(response.body());
@@ -168,7 +206,7 @@ public class LlmService {
                 .uri(URI.create(url))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
-                .timeout(Duration.ofSeconds(25))
+                .timeout(Duration.ofSeconds(30))
                 .build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());

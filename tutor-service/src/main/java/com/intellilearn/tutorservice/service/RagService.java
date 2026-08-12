@@ -81,7 +81,7 @@ public class RagService {
             } else if (!q.isEmpty()) {
                 grounded = false;
                 sources = List.of();
-                answer = "I am your IntelliLearn AI Tutor. I couldn't locate specific grounded material in the course index for your question. You can connect your OpenAI, Gemini, or Groq API Key using the ⚙️ Settings button to unlock unlimited AI answers for any software engineering topic!";
+                answer = "I am your IntelliLearn AI Tutor. I couldn't locate specific grounded material in the course index for your question. Please try rephrasing or ask about a specific topic like Java OOP, Spring Boot, Microservices, React, or MongoDB!";
             } else {
                 grounded = false;
                 sources = List.of();

@@ -38,8 +38,10 @@ services:
       mongodb:
         condition: service_started
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/userdb
-      - SECURITY_API_KEY=user-service-secret-key-123
+      - USER_SERVICE_MONGODB_URI=${USER_SERVICE_MONGODB_URI:-mongodb://mongodb:27017/userdb}
+      - MONGODB_URI=${USER_SERVICE_MONGODB_URI:-mongodb://mongodb:27017/userdb}
+      - USER_SERVICE_API_KEY=${USER_SERVICE_API_KEY:-user-service-secret-key-123}
+      - SECURITY_API_KEY=${USER_SERVICE_API_KEY:-user-service-secret-key-123}
 
   # 5. Course Service microservice
   course-service:
@@ -53,8 +55,10 @@ services:
       mongodb:
         condition: service_started
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/coursedb
-      - SECURITY_API_KEY=course-service-secret-key-456
+      - COURSE_SERVICE_MONGODB_URI=${COURSE_SERVICE_MONGODB_URI:-mongodb://mongodb:27017/coursedb}
+      - MONGODB_URI=${COURSE_SERVICE_MONGODB_URI:-mongodb://mongodb:27017/coursedb}
+      - COURSE_SERVICE_API_KEY=${COURSE_SERVICE_API_KEY:-course-service-secret-key-456}
+      - SECURITY_API_KEY=${COURSE_SERVICE_API_KEY:-course-service-secret-key-456}
 
   # 6. Quiz & Assessment Service microservice
   quiz-service:
@@ -68,7 +72,8 @@ services:
       mongodb:
         condition: service_started
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/quizdb
+      - QUIZ_SERVICE_MONGODB_URI=${QUIZ_SERVICE_MONGODB_URI:-mongodb://mongodb:27017/quizdb}
+      - MONGODB_URI=${QUIZ_SERVICE_MONGODB_URI:-mongodb://mongodb:27017/quizdb}
       - SECURITY_API_KEY=quiz-service-secret-key-101
 
   # 7. Learning Progress Service microservice
@@ -83,8 +88,10 @@ services:
       mongodb:
         condition: service_started
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/progressdb
-      - SECURITY_API_KEY=progress-service-secret-key-789
+      - PROGRESS_SERVICE_MONGODB_URI=${PROGRESS_SERVICE_MONGODB_URI:-mongodb://mongodb:27017/progressdb}
+      - MONGODB_URI=${PROGRESS_SERVICE_MONGODB_URI:-mongodb://mongodb:27017/progressdb}
+      - PROGRESS_SERVICE_API_KEY=${PROGRESS_SERVICE_API_KEY:-progress-service-secret-key-789}
+      - SECURITY_API_KEY=${PROGRESS_SERVICE_API_KEY:-progress-service-secret-key-789}
 
   # 8. AI Tutor RAG Service microservice
   tutor-service:
@@ -98,8 +105,14 @@ services:
       mongodb:
         condition: service_started
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/tutordb
+      - TUTOR_SERVICE_MONGODB_URI=${TUTOR_SERVICE_MONGODB_URI:-mongodb://mongodb:27017/tutordb}
+      - MONGODB_URI=${TUTOR_SERVICE_MONGODB_URI:-mongodb://mongodb:27017/tutordb}
       - SECURITY_API_KEY=tutor-service-secret-key-999
+      - LLM_PROVIDER=${LLM_PROVIDER:-openrouter}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
 
   # 9. API Gateway routing & security entry point
   api-gateway:
