@@ -43,42 +43,57 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Dynamic Gateway URL resolution (reads from st.secrets, env vars, or defaults to localhost)
+import os
+
+def get_base_gateway_url():
+    try:
+        if hasattr(st, "secrets") and "VITE_GATEWAY_URL" in st.secrets:
+            return st.secrets["VITE_GATEWAY_URL"].rstrip("/")
+        if hasattr(st, "secrets") and "GATEWAY_URL" in st.secrets:
+            return st.secrets["GATEWAY_URL"].rstrip("/")
+    except Exception:
+        pass
+    return os.getenv("GATEWAY_URL", os.getenv("VITE_GATEWAY_URL", "http://localhost:8080")).rstrip("/")
+
+GATEWAY_BASE = get_base_gateway_url()
+
 # Define Microservice Swagger Endpoints
 SERVICES = {
     "🌐 Aggregated Gateway Swagger UI": {
-        "gateway_url": "http://localhost:8080/swagger-ui.html",
-        "direct_url": "http://localhost:8080/swagger-ui.html",
-        "openapi_url": "http://localhost:8080/v3/api-docs",
+        "gateway_url": f"{GATEWAY_BASE}/swagger-ui.html",
+        "direct_url": f"{GATEWAY_BASE}/swagger-ui.html",
+        "openapi_url": f"{GATEWAY_BASE}/v3/api-docs",
         "description": "Unified Gateway Swagger UI containing specs for all 5 microservices in a single dropdown."
     },
     "👤 User Service": {
-        "gateway_url": "http://localhost:8080/user-service/swagger-ui/index.html",
+        "gateway_url": f"{GATEWAY_BASE}/user-service/swagger-ui/index.html",
         "direct_url": "http://localhost:8081/swagger-ui.html",
-        "openapi_url": "http://localhost:8080/user-service/v3/api-docs",
+        "openapi_url": f"{GATEWAY_BASE}/user-service/v3/api-docs",
         "description": "User authentication, profile management, and role-based permissions."
     },
     "📚 Course Service": {
-        "gateway_url": "http://localhost:8080/course-service/swagger-ui/index.html",
+        "gateway_url": f"{GATEWAY_BASE}/course-service/swagger-ui/index.html",
         "direct_url": "http://localhost:8082/swagger-ui.html",
-        "openapi_url": "http://localhost:8080/course-service/v3/api-docs",
+        "openapi_url": f"{GATEWAY_BASE}/course-service/v3/api-docs",
         "description": "Course catalog management, module creation, and student enrollment."
     },
     "🧩 Quiz Service": {
-        "gateway_url": "http://localhost:8080/quiz-service/swagger-ui/index.html",
+        "gateway_url": f"{GATEWAY_BASE}/quiz-service/swagger-ui/index.html",
         "direct_url": "http://localhost:8083/swagger-ui.html",
-        "openapi_url": "http://localhost:8080/quiz-service/v3/api-docs",
+        "openapi_url": f"{GATEWAY_BASE}/quiz-service/v3/api-docs",
         "description": "Quiz generation, automated evaluation, submission tracking, and assessments."
     },
     "📊 Progress Service": {
-        "gateway_url": "http://localhost:8080/progress-service/swagger-ui/index.html",
+        "gateway_url": f"{GATEWAY_BASE}/progress-service/swagger-ui/index.html",
         "direct_url": "http://localhost:8084/swagger-ui.html",
-        "openapi_url": "http://localhost:8080/progress-service/v3/api-docs",
+        "openapi_url": f"{GATEWAY_BASE}/progress-service/v3/api-docs",
         "description": "Student learning analytics, progress tracking, and performance metrics."
     },
     "🤖 AI Tutor Service": {
-        "gateway_url": "http://localhost:8080/tutor-service/swagger-ui/index.html",
+        "gateway_url": f"{GATEWAY_BASE}/tutor-service/swagger-ui/index.html",
         "direct_url": "http://localhost:8085/swagger-ui.html",
-        "openapi_url": "http://localhost:8080/tutor-service/v3/api-docs",
+        "openapi_url": f"{GATEWAY_BASE}/tutor-service/v3/api-docs",
         "description": "RAG-powered AI tutoring assistant, content summarization, and query execution."
     }
 }
@@ -110,20 +125,59 @@ current_url = service_info["gateway_url"] if "Gateway" in access_mode else servi
 st.markdown(f'<div class="main-title">{selected_service_name}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="sub-title">{service_info["description"]}</div>', unsafe_allow_html=True)
 
-# Quick Action Toolbar
-col1, col2, col3 = st.columns([2, 2, 4])
-
-with col1:
-    st.link_button("🔗 Open Swagger UI in New Tab", current_url, use_container_width=True)
-
-with col2:
-    st.link_button("📄 View Raw OpenAPI Spec (JSON)", service_info["openapi_url"], use_container_width=True)
-
-with col3:
-    st.info(f"📍 Active Endpoint: `{current_url}`")
+# Helper function to generate inline standalone React app HTML
+def get_standalone_react_html():
+    client_dir = os.path.join(os.path.dirname(__file__), "client")
+    dist_dir = os.path.join(client_dir, "dist")
+    assets_dir = os.path.join(dist_dir, "assets")
+    
+    # If dist folder doesn't exist, try building client
+    if not os.path.exists(dist_dir) or not os.path.exists(assets_dir):
+        import subprocess
+        try:
+            subprocess.run(["npm", "--prefix", client_dir, "run", "build"], check=True)
+        except Exception as err:
+            return f"<h3>Error building client: {err}</h3>"
+            
+    css_content = ""
+    js_content = ""
+    
+    if os.path.exists(assets_dir):
+        for f in os.listdir(assets_dir):
+            fpath = os.path.join(assets_dir, f)
+            if f.endswith(".css"):
+                with open(fpath, "r", encoding="utf-8") as file:
+                    css_content += file.read() + "\n"
+            elif f.endswith(".js"):
+                with open(fpath, "r", encoding="utf-8") as file:
+                    js_content += file.read() + "\n"
+                    
+    return f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IntelliLearn - AI Learning Platform</title>
+    <style>
+      {css_content}
+      body {{ margin: 0; padding: 0; background-color: #050811; }}
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      {js_content}
+    </script>
+  </body>
+</html>"""
 
 # Tabs View
-tab1, tab2, tab3 = st.tabs(["🖥️ Interactive Swagger UI", "🔍 All Services Grid", "📋 Raw OpenAPI JSON Viewer"])
+tab_app, tab1, tab2, tab3 = st.tabs(["🚀 IntelliLearn Web App", "🖥️ Interactive Swagger UI", "🔍 All Services Grid", "📋 Raw OpenAPI JSON Viewer"])
+
+with tab_app:
+    st.markdown("##### IntelliLearn Full React Web Application")
+    html_bundle = get_standalone_react_html()
+    components.html(html_bundle, height=850, scrolling=True)
 
 with tab1:
     st.markdown("##### Embedded Interactive Documentation")
@@ -170,3 +224,4 @@ with tab3:
 # Footer
 st.divider()
 st.caption("🚀 IntelliLearn Microservices Platform | Streamlit OpenAPI Gateway Integration")
+
