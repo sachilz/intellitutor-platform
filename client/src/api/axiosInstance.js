@@ -3,7 +3,9 @@ import axios from 'axios';
 const GATEWAY_URL =
   import.meta.env.VITE_GATEWAY_URL ||
   import.meta.env.REACT_APP_GATEWAY_URL ||
-  'http://localhost:8080';
+  (typeof window !== 'undefined' && window.location.port === '3000'
+    ? ''
+    : 'http://localhost:8088');
 
 let authToken = null;
 

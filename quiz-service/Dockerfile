@@ -1,30 +1,14 @@
-# =====================================================================
-# IntelliLearn - Quiz & Assessment Service
-# Build:    docker build -t intellilearn/quiz-service .
-# Run:      docker run -p 8081:8081 intellilearn/quiz-service
-# =====================================================================
-
-# ---- Build stage: compile and package the application -----------------
-FROM maven:3.9-eclipse-temurin-17 AS build
-WORKDIR /workspace
-
-# Cache dependencies first (layer only invalidated when pom.xml changes)
-COPY pom.xml .
-RUN mvn -B -q dependency:go-offline
-
-COPY src ./src
-RUN mvn -B clean package -DskipTests
-
-# ---- Runtime stage: minimal JRE ----------------------------------------
-FROM eclipse-temurin:17-jre
+# Stage 1: Build stage with Maven and JDK 17
+FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+RUN mvn clean package -DskipTests
 
-# Run as a non-root user
-RUN useradd --system --uid 10001 --create-home appuser
+# Stage 2: Runtime stage with lightweight JRE 17
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
+EXPOSE 8083
+ENTRYPOINT ["java", "-jar", "app.jar"]
 
-COPY --from=build /workspace/target/quiz-service-*.jar /app/app.jar
-
-USER appuser
-EXPOSE 8081
-
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
