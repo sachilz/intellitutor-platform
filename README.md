@@ -42,14 +42,14 @@
 
 ## System Architecture & Data Flow
 
-All external client traffic passes through the **API Gateway** (`port 8080`), which handles rate-limiting, CORS, and OAuth2 JWT verification before proxying requests to downstream microservices.
+All external client traffic passes through the **API Gateway** (`port 8088`), which handles rate-limiting, CORS, and OAuth2 JWT verification before proxying requests to downstream microservices.
 
 ```mermaid
 graph TD
     Client["📱 React Frontend Client\n(Port 3000)"]
     
     subgraph Edge Layer
-        Gateway["🌐 API Gateway\n(Port 8080)\n• Route Proxying\n• OAuth2 Security\n• Redis Rate Limiting"]
+        Gateway["🌐 API Gateway\n(Port 8088)\n• Route Proxying\n• OAuth2 Security\n• Redis Rate Limiting"]
     end
     
     subgraph Microservices Layer
@@ -88,25 +88,23 @@ graph TD
 
 | Service Name | Stack / Runtime | Port | Database | Primary Responsibilities |
 | :--- | :--- | :---: | :---: | :--- |
-| **`api-gateway`** | Spring Cloud Gateway | `8080` | Redis | Single entry point, CORS, rate limiting, and JWT validation |
+| **`api-gateway`** | Spring Cloud Gateway | `8088` | Redis | Single entry point, CORS, rate limiting, and JWT validation |
 | **`user-service`** | Node.js / Express | `8081` | `userdb` | Authentication fallback, user registration, profiles & roles |
 | **`course-service`** | Spring Boot 3.3 | `8082` | `coursedb` | Course creation, catalog search, module management & enrollments |
 | **`quiz-service`** | Spring Boot 3.3 | `8083` | `quizdb` | Quiz builder, dynamic evaluation, submission history |
 | **`progress-service`**| Spring Boot 3.3 | `8084` | `progressdb` | Student milestone tracking, analytics, and completion percent |
 | **`tutor-service`** | Spring Boot + RAG | `8085` | `tutordb` | OpenRouter LLM integration, AI tutoring chat, content summarizer |
 | **`client`** | React 19 + Vite | `3000` | — | Single Page Application (SPA) with full mobile responsiveness |
-| **`streamlit`** | Python / Streamlit | `8501` | — | Microservice OpenAPI & Swagger Hub developer portal |
 
 ---
 
 ## OpenAPI & Swagger Documentation Hub
 
-IntelliLearn includes an interactive **Streamlit Developer Hub** (`streamlit_app.py`) for inspecting raw OpenAPI specs and testing Swagger documentation across all microservices:
+IntelliLearn exposes interactive **Swagger Documentation** across all microservices for inspecting raw OpenAPI specs and testing endpoints:
 
 | Documentation Interface | URL |
 | :--- | :--- |
-| **Streamlit OpenAPI Hub** | [http://localhost:8501](http://localhost:8501) |
-| **API Gateway Aggregated Swagger** | [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) |
+| **API Gateway Aggregated Swagger** | [http://localhost:8088/swagger-ui.html](http://localhost:8088/swagger-ui.html) |
 | **User Service Swagger** | [http://localhost:8081/swagger-ui.html](http://localhost:8081/swagger-ui.html) |
 | **Course Service Swagger** | [http://localhost:8082/swagger-ui.html](http://localhost:8082/swagger-ui.html) |
 | **Quiz Service Swagger** | [http://localhost:8083/swagger-ui.html](http://localhost:8083/swagger-ui.html) |
@@ -147,7 +145,7 @@ docker compose ps
 ```
 
 Expected containers:
-- `api-gateway` (`:8080`)
+- `api-gateway` (`:8088`)
 - `client` (`:3000`)
 - `user-service` (`:8081`)
 - `course-service` (`:8082`)
@@ -191,7 +189,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## Security & Environment Variables
 
 Key service security headers:
-- **Gateway Entry**: `http://localhost:8080`
+- **Gateway Entry**: `http://localhost:8088`
 - **Microservice Key Header**: `X-API-KEY`
 
 | Service | Environment Variable | Default Development Value |
