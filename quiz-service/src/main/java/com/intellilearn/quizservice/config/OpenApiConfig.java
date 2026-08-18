@@ -23,6 +23,7 @@ public class OpenApiConfig {
     @Bean
     public OpenAPI quizServiceOpenApi() {
         return new OpenAPI()
+                .addServersItem(new io.swagger.v3.oas.models.servers.Server().url("http://localhost:8088/api").description("API Gateway Access"))
                 .info(new Info()
                         .title("Quiz & Assessment Service API")
                         .description("""

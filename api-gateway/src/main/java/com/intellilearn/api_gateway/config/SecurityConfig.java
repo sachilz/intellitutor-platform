@@ -39,6 +39,7 @@ public class SecurityConfig {
                                 "/quiz-service/**",
                                 "/progress-service/**",
                                 "/tutor-service/**",
+                                "/api/users/**",
                                 "/api/auth/**",
                                 "/api/courses/**",
                                 "/api/progress/**",
@@ -60,7 +61,7 @@ public class SecurityConfig {
     private ServerAuthenticationEntryPoint customAuthenticationEntryPoint() {
         return (exchange, ex) -> {
             String path = exchange.getRequest().getURI().getPath();
-            if (path.startsWith("/api/auth/") || path.startsWith("/api/courses") || path.startsWith("/api/progress")
+            if (path.startsWith("/api/users") || path.startsWith("/api/auth/") || path.startsWith("/api/courses") || path.startsWith("/api/progress")
                     || path.startsWith("/api/quizzes") || path.startsWith("/api/tutor") || path.equals("/gateway/health")
                     || path.startsWith("/swagger-ui") || path.startsWith("/v3/api-docs") || path.startsWith("/webjars")
                     || path.startsWith("/user-service") || path.startsWith("/course-service")

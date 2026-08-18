@@ -14,6 +14,7 @@ public class OpenApiConfig {
     @Bean
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
+                .addServersItem(new io.swagger.v3.oas.models.servers.Server().url("http://localhost:8088/api").description("API Gateway Access"))
                 .info(new Info()
                         .title("AI Tutor Service API")
                         .version("1.0.0")
