@@ -53,7 +53,7 @@ graph TD
     end
     
     subgraph Microservices Layer
-        UserService["👤 User Service\n(Port 8081 - Node.js)"]
+        UserService["👤 User Service\n(Port 8081 - Spring Boot)"]
         CourseService["📚 Course Service\n(Port 8082 - Spring Boot)"]
         QuizService["🧩 Quiz Service\n(Port 8083 - Spring Boot)"]
         ProgressService["📊 Progress Service\n(Port 8084 - Spring Boot)"]
@@ -89,7 +89,7 @@ graph TD
 | Service Name | Stack / Runtime | Port | Database | Primary Responsibilities |
 | :--- | :--- | :---: | :---: | :--- |
 | **`api-gateway`** | Spring Cloud Gateway | `8088` | Redis | Single entry point, CORS, rate limiting, and JWT validation |
-| **`user-service`** | Node.js / Express | `8081` | `userdb` | Authentication fallback, user registration, profiles & roles |
+| **`user-service`** | Spring Boot 3.3 | `8081` | `userdb` | Authentication fallback, user registration, profiles & roles |
 | **`course-service`** | Spring Boot 3.3 | `8082` | `coursedb` | Course creation, catalog search, module management & enrollments |
 | **`quiz-service`** | Spring Boot 3.3 | `8083` | `quizdb` | Quiz builder, dynamic evaluation, submission history |
 | **`progress-service`**| Spring Boot 3.3 | `8084` | `progressdb` | Student milestone tracking, analytics, and completion percent |
@@ -116,7 +116,7 @@ IntelliLearn exposes interactive **Swagger Documentation** across all microservi
 ## Tech Stack & Engineering Tools
 
 - **Frontend**: React 19, React Router v7, Lucide Icons, Vanilla CSS (Design Tokens, Glassmorphism, Responsive Grid System)
-- **Backend & Gateway**: Java 17, Spring Boot 3.3.2, Spring Cloud Gateway, Node.js Express
+- **Backend & Gateway**: Java 17, Spring Boot 3.3.2, Spring Cloud Gateway
 - **Databases & Cache**: MongoDB Atlas / Local MongoDB 7.0, Redis 7.0
 - **AI / LLM**: OpenRouter API (RAG Engine + Topic Summarizer)
 - **Security**: Keycloak SSO (OAuth2 / OpenID Connect) + `X-API-KEY` microservice filter
@@ -177,12 +177,12 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## eam & Ownership Matrix
+## 3. Team Member Work Breakdown Matrix
 
-| Student ID | Team Role | Core Responsibilities & Microservices |
-| :--- | :--- | :--- |
-| **ITBIN-2313-0137** | Backend & API Gateway Lead | `user-service`, `course-service`, `api-gateway`, Security Filter |
-| **ITBIN-2313-0007** | AI/RAG Services & Frontend Lead | `quiz-service`, `progress-service`, `tutor-service`, `client` SPA |
+| Student Name / ID | Role | Microservice Name | Key Responsibilities & Endpoints |
+| :--- | :--- | :--- | :--- |
+| **ITBIN-2313-0137** | Gateway Lead & Member | `user-service` & `course-service` | API Gateway, OAuth 2.0, Rate Limiting, API Key Auth.<br>**Endpoints**: `/api/users/profile`, `/api/courses`, `/api/courses/{id}` |
+| **ITBIN-2313-0007** | Frontend Lead & Member | `quiz-service`, `progress-service`, `tutor-service` | React SPA Client, RAG LLM integration, API Key Auth.<br>**Endpoints**: `/api/quizzes/submit`, `/api/progress/{userId}`, `/api/tutor/chat` |
 
 ---
 
